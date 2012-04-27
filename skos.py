@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import declarative_base
 #from sqlalchemy import Table, Column, Integer, String, Date, Float, ForeignKey, event
 from sqlalchemy import Table, Column, String, Text, ForeignKey
 from sqlalchemy.orm import relationship, backref, synonym
-from sqlalchemy.orm.collections import attribute_mapped_collection
+from sqlalchemy.orm.collections import attribute_mapped_collection, collection
 import collections
 import logging
 
@@ -115,6 +115,82 @@ class ExactMatches(collections.MutableSet, collections.Mapping):
     def __str__(self):
         return str(dict(self))
 
+# see <http://docs.sqlalchemy.org/en/latest/orm/collections.html> for
+# details on custom collections.
+class Concepts(collections.MutableSet, collections.Mapping):
+    """
+    A collection of Concepts
+
+    This is a composition of the `collections.MutableSet` and
+    `collections.Mapping` classes. It is *not* a `skos:Collection`
+    implementation.
+    """
+
+    def __init__(self, values=None):
+        self._concepts = {}
+        if values:
+            self.update(values)
+
+    # Implement the interface for `collections.Iterable`
+    def __iter__(self):
+        return iter(self._concepts)
+
+    @collection.iterator
+    def itervalues(self):
+        return super(Concepts, self).itervalues()
+
+    # Implement the interface for `collections.Container`
+    def __contains__(self, value):
+        return value in self._concepts
+
+    # Implement the interface for `collections.Sized`
+    def __len__(self):
+        return len(self._concepts)
+
+    # Implement the interface for `collections.MutableSet`
+    @collection.appender
+    def add(self, value):
+        self._concepts[value.uri] = value
+
+    @collection.remover
+    def discard(self, value):
+        try:
+            del self._concepts[value.uri]
+        except KeyError:
+            pass
+
+    # Implement the interface for `collections.Mapping` with the
+    # ability to delete items as well
+
+    def __getitem__(self, key):
+        return self._concepts[key]
+
+    def __delitem__(self, key):
+        self.discard(self._concepts[key]) # remove through an instrumented method
+
+    @collection.converter
+    @collection.internally_instrumented
+    def update(self, concepts):
+        """
+        Update the concepts from another source
+
+        The argument can be a dictionary-like container of concepts or
+        a sequence of concepts.
+        """
+        debug('adding concepts %s', concepts)
+        if not isinstance(concepts, collections.Mapping):
+            return iter(concepts)
+        return concepts.itervalues()
+
+    def __eq__(self, other):
+        return self._concepts == other
+
+    def __str__(self):
+        return str(self._concepts)
+
+    def __repr__(self):
+        return repr(self._concepts)
+
 class Concept(Base):
     __tablename__ = 'concept'
 
@@ -134,8 +210,8 @@ class Concept(Base):
         secondary=concept_broader,
         primaryjoin=uri==concept_broader.c.narrower_uri,
         secondaryjoin=uri==concept_broader.c.broader_uri,
-        collection_class=set,
-        backref=backref('narrowMatches', collection_class=set))
+        collection_class=Concepts,
+        backref=backref('narrowMatches', collection_class=Concepts))
 
     # many to many Concept <-> Concept representing exact matches
     _exactMatches_left = relationship(
@@ -160,6 +236,7 @@ class Concept(Base):
 
     def __hash__(self):
         return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'prefLabel', 'definition'))))
+
 
 class ConceptScheme(Base):
     """
@@ -186,14 +263,15 @@ class ConceptScheme(Base):
     concepts = relationship(
         'Concept',
         secondary=concepts2schemes,
-        collection_class=set,
-        backref=backref('schemes', collection_class=set))
+        collection_class=Concepts,
+        backref=backref('schemes', collection_class=Concepts))
 
     def __repr__(self):
-        return "<%s('%s', '%s')>" % (self.__class__.__name__, self.uri, self.title)
+        return "<%s('%s')>" % (self.__class__.__name__, self.uri)
 
     def __hash__(self):
         return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'title', 'description'))))
+
 
 import rdflib
 class RDFLoader(object):
