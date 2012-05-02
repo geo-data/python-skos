@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<!-- An external SKOS concept retrieved from http://vocab.ndg.nerc.ac.uk/term/P041/4/G874 -->
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" 
+xmlns:skos="http://www.w3.org/2004/02/skos/core#" 
+xmlns:dc="http://purl.org/dc/elements/1.1/"> 
+<skos:Concept rdf:about='./external2.xml'>
+<skos:externalID>SDN:P041:4:G874</skos:externalID>
+<skos:prefLabel>EARTH SCIENCE &gt; Oceans &gt; Ocean Acoustics &gt; Acoustic Scattering</skos:prefLabel>
+<skos:altLabel></skos:altLabel>
+<skos:definition></skos:definition>
+<dc:date>2012-05-01T17:21:21.903+0000</dc:date><skos:broadMatch rdf:resource="http://vocab.ndg.nerc.ac.uk/term/P021/73/ASAM" /> 
+</skos:Concept>
+</rdf:RDF> 
