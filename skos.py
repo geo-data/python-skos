@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import declarative_base
 #from sqlalchemy import Table, Column, Integer, String, Date, Float, ForeignKey, event
 from sqlalchemy import Table, Column, String, Text, ForeignKey
 from sqlalchemy.orm import relationship, backref, synonym
-from sqlalchemy.orm.collections import attribute_mapped_collection, collection
+from sqlalchemy.orm.collections import collection
 import collections
 import logging
 
@@ -68,17 +68,21 @@ class ExactMatches(collections.MutableSet, collections.Mapping):
 
     # Implement the interface for `collections.MutableSet`
     def add(self, value):
-        self._concept._exactMatches_left[value.uri] = value
+        self._concept._exactMatches_left.add(value)
 
     def discard(self, value):
+        self._concept._exactMatches_left.discard(value)
+        self._concept._exactMatches_right.discard(value)
+
+    def pop(self):
         try:
-            del self._concept._exactMatches_left[value.uri]
+            value = self._concepts._exactMatches_left.pop()
         except KeyError:
-            pass
-        try:
-            del self._concept._exactMatches_right[value.uri]
-        except KeyError:
-            pass
+            value = self._concepts._exactMatches_right.pop()
+            self._concepts._exactMatches_left.discard(value)
+        else:
+            self._concepts._exactMatches_right.discard(value)
+        return value
 
     # Implement the interface for `collections.Mapping` with the
     # ability to delete items as well
@@ -115,9 +119,13 @@ class ExactMatches(collections.MutableSet, collections.Mapping):
     def __str__(self):
         return str(dict(self))
 
-# see <http://docs.sqlalchemy.org/en/latest/orm/collections.html> for
-# details on custom collections.
-class Concepts(collections.MutableSet, collections.Mapping):
+    def __eq__(self, other):
+        return (
+            self._concept._exactMatches_right == other._concept._exactMatches_right and
+            self._concept._exactMatches_left == other._concept._exactMatches_left
+            )
+
+class Concepts(collections.Mapping, collections.MutableSet):
     """
     A collection of Concepts
 
@@ -135,12 +143,10 @@ class Concepts(collections.MutableSet, collections.Mapping):
     def __iter__(self):
         return iter(self._concepts)
 
-    @collection.iterator
-    def itervalues(self):
-        return super(Concepts, self).itervalues()
-
     # Implement the interface for `collections.Container`
     def __contains__(self, value):
+        if isinstance(value, Concept):
+            value = value.uri
         return value in self._concepts
 
     # Implement the interface for `collections.Sized`
@@ -148,16 +154,18 @@ class Concepts(collections.MutableSet, collections.Mapping):
         return len(self._concepts)
 
     # Implement the interface for `collections.MutableSet`
-    @collection.appender
     def add(self, value):
         self._concepts[value.uri] = value
 
-    @collection.remover
     def discard(self, value):
         try:
             del self._concepts[value.uri]
         except KeyError:
             pass
+
+    def pop(self):
+        key, value = self._concepts.popitem()
+        return value
 
     # Implement the interface for `collections.Mapping` with the
     # ability to delete items as well
@@ -167,6 +175,53 @@ class Concepts(collections.MutableSet, collections.Mapping):
 
     def __delitem__(self, key):
         self.discard(self._concepts[key]) # remove through an instrumented method
+
+    def update(self, concepts):
+        """
+        Update the concepts from another source
+
+        The argument can be a dictionary-like container of concepts or
+        a sequence of concepts.
+        """
+        if not isinstance(concepts, collections.Mapping):
+            iterator = iter(concepts)
+        else:
+            iterator = concepts.itervalues()
+        for value in iterator:
+            self.add(value)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._concepts == other._concepts
+        return self._concepts == other
+
+    def __str__(self):
+        return str(self._concepts)
+
+    def __repr__(self):
+        return repr(self._concepts)
+
+class InstrumentedConcepts(Concepts):
+    """
+    Adapted `Concepts` class for use in SQLAlchemy relationships
+    """
+
+    # See <http://docs.sqlalchemy.org/en/latest/orm/collections.html>
+    # for details on custom collections. This also uses the "trivial
+    # subclass" trick detailed at
+    # <http://docs.sqlalchemy.org/en/latest/orm/collections.html#instrumentation-and-custom-types>.
+
+    @collection.iterator
+    def itervalues(self):
+        return super(InstrumentedConcepts, self).itervalues()
+
+    @collection.appender
+    def add(self, *args, **kwargs):
+        return super(InstrumentedConcepts, self).add(*args, **kwargs)
+
+    @collection.remover
+    def discard(self, *args, **kwargs):
+        return super(InstrumentedConcepts, self).discard(*args, **kwargs)
 
     @collection.converter
     @collection.internally_instrumented
@@ -182,14 +237,6 @@ class Concepts(collections.MutableSet, collections.Mapping):
             return iter(concepts)
         return concepts.itervalues()
 
-    def __eq__(self, other):
-        return self._concepts == other
-
-    def __str__(self):
-        return str(self._concepts)
-
-    def __repr__(self):
-        return repr(self._concepts)
 
 class Concept(Base):
     __tablename__ = 'concept'
@@ -210,8 +257,8 @@ class Concept(Base):
         secondary=concept_broader,
         primaryjoin=uri==concept_broader.c.narrower_uri,
         secondaryjoin=uri==concept_broader.c.broader_uri,
-        collection_class=Concepts,
-        backref=backref('narrowMatches', collection_class=Concepts))
+        collection_class=InstrumentedConcepts,
+        backref=backref('narrowMatches', collection_class=InstrumentedConcepts))
 
     # many to many Concept <-> Concept representing exact matches
     _exactMatches_left = relationship(
@@ -219,8 +266,8 @@ class Concept(Base):
         secondary=concept_exact,
         primaryjoin=uri==concept_exact.c.left_uri,
         secondaryjoin=uri==concept_exact.c.right_uri,
-        collection_class=attribute_mapped_collection('uri'),
-        backref=backref('_exactMatches_right', collection_class=attribute_mapped_collection('uri')))
+        collection_class=InstrumentedConcepts,
+        backref=backref('_exactMatches_right', collection_class=InstrumentedConcepts))
 
     def _getExactMatches(self):
         return ExactMatches(self)
@@ -237,6 +284,8 @@ class Concept(Base):
     def __hash__(self):
         return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'prefLabel', 'definition'))))
 
+    def __eq__(self, other):
+        return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'prefLabel', 'definition')])
 
 class ConceptScheme(Base):
     """
@@ -263,8 +312,8 @@ class ConceptScheme(Base):
     concepts = relationship(
         'Concept',
         secondary=concepts2schemes,
-        collection_class=Concepts,
-        backref=backref('schemes', collection_class=Concepts))
+        collection_class=InstrumentedConcepts,
+        backref=backref('schemes', collection_class=InstrumentedConcepts))
 
     def __repr__(self):
         return "<%s('%s')>" % (self.__class__.__name__, self.uri)
@@ -272,137 +321,176 @@ class ConceptScheme(Base):
     def __hash__(self):
         return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'title', 'description'))))
 
+    def __eq__(self, other):
+        return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'title', 'description', 'concepts')])
+
 
 import rdflib
-class RDFLoader(object):
+from itertools import chain
+class RDFLoader(collections.Mapping):
     """
-    Turn a RDF graph in to Concept classes
+    Turn a RDF graph in to SKOS classes
     """
 
+    graph = None
     max_depth = None
-    def __init__(self, max_depth=float('inf')):
-        self.cache = {}
+    def __init__(self, graph, max_depth=float('inf')):
+        self.graph = graph
+        self._cache = {}
         self.max_depth = max_depth
+        self._parsing_depth = 0
+        self.types = ('Concept', 'ConceptScheme')
 
-    def load(self, graph):
-        return self.loadConceptSchemes(graph).union(self.loadConcepts(graph))
+    def _iterateTypes(self, types=None):
+        if not types:
+            types = self.types
 
-    def loadConceptSchemes(self, graph):
-        self.cache = {}
+        for subject_type in types:
+            if subject_type not in self.types:
+                raise ValueError('Bad SKOS type: %s' % subject_type)
 
-        # get the skos:ConceptScheme
-        for subject in graph.subjects(
-            object=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#ConceptScheme'),
-            predicate=rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')):
-            self.loadConceptScheme(graph, subject)
+            for subject in self.graph.subjects(
+                object=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type),
+                predicate=rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')):
+                yield str(subject)
 
-        values = set(self.cache.itervalues())
-        self.cache = {}
-        return values
+    # Implement the interface for `collections.Iterable`
+    def __iter__(self):
+        return self._iterateTypes()
 
-    def loadConcepts(self, graph):
-        self.cache = {}
+    # Implement the interface for `collections.Container`
+    def __contains__(self, value):
+        subject = rdflib.URIRef(value)
+        return max([(
+            subject,
+            rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type)
+            ) in self.graph for subject_type in self.types])
 
-        # get the skos:Concept subjects
-        for subject in graph.subjects(
-            object=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#Concept'),
-            predicate=rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')):
-            self.loadConcept(graph, subject)
+    # Implement the interface for `collections.Sized`
+    def __len__(self):
+        return sum((1 for k in self))
 
-        values = set(self.cache.itervalues())
-        self.cache = {}
-        return values
-
-    def _getItem(self, graph, subject, subject_type, depth=0):
+    # Implement the interface for `collections.Mapping`
+    def __getitem__(self, key):
         # try and return a cached item
-        uri = str(subject)
         try:
-            return self.cache[uri]
-        except KeyError:
+            return self._cache[key]
+        except KeyError, e:
             pass
 
-        if depth > self.max_depth:
-            info('parsing depth (%d) exceeded for %s', depth, uri)
-            raise RecursionError('parsing depth (%d) exceeded for %s' % (depth, uri))
+        subject = rdflib.URIRef(key)
+        predicate = rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+        for subject_type in self.types:
+            try:
+                loader = getattr(self, 'load' + subject_type)
+            except AttributeError:
+                raise ValueError('Bad SKOS type: %s' % subject_type)
+
+            object_ = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type)
+
+            for triple in self.graph.triples((
+                    subject,
+                    predicate,
+                    object_
+                    )):
+                try:
+                    return loader(subject) # return the first value we come across
+                finally:
+                    if self._parsing_depth > 0:
+                        self._parsing_depth -= 1
+
+        raise KeyError(key)
+
+    def _checkItem(self, subject, subject_type, graph=None):
+        if not graph:
+            graph = self.graph
+        uri = str(subject)
 
         if (
             subject,
             rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type)
-            ) not in graph:
+            ) not in self.graph:
             # try and parse the subject to add it to the current graph
+            if self._parsing_depth >= self.max_depth:
+                info('parsing depth (%d) exceeded for %s', self._parsing_depth, uri)
+                raise RecursionError('parsing depth (%d) exceeded for %s' % (self._parsing_depth, uri))
+
             info('parsing %s %s', subject_type, uri)
-            subgraph = graph.parse(uri)
+            # parse using a new graph object. We need a new graph
+            # because otherwise the existing graph is extended by
+            # parse which dynamically affects the content of the
+            # current RDFLoader
+            graph = rdflib.Graph()
+            graph.parse(uri)
+            self._parsing_depth += 1
             if (
             subject,
             rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type)
-            ) not in subgraph:
+            ) not in graph:
                 # the newly parsed graph didn't contain the concept
                 debug('%s does not exist: %s', subject_type, uri)
                 raise KeyError('%s does not exist: %s' % (subject_type, uri))
 
         debug('%s exists: %s', subject_type, uri)
-        return None
+        return graph
 
-    def loadConceptScheme(self, graph, subject):
-        try:
-            scheme = self._getItem(graph, subject, 'ConceptScheme')
-        except (RecursionError, KeyError):
-            return None
-
-        if scheme:
-            return scheme
+    def loadConceptScheme(self, subject):
+        self._checkItem(subject, 'ConceptScheme')
 
         # create the basic concept
         uri = str(subject)
         try:
-            title = list(graph.objects(subject=subject, predicate=rdflib.URIRef('http://purl.org/dc/elements/1.1/title')))[0]
+            title = list(self.graph.objects(subject=subject, predicate=rdflib.URIRef('http://purl.org/dc/elements/1.1/title')))[0]
         except IndexError:
             raise ValueError('Expected a title for the ConceptScheme: %s' % uri)
 
         try:
-            description = list(graph.objects(subject=subject, predicate=rdflib.URIRef('http://purl.org/dc/elements/1.1/description')))[0]
+            description = list(self.graph.objects(subject=subject, predicate=rdflib.URIRef('http://purl.org/dc/elements/1.1/description')))[0]
         except IndexError:
             raise ValueError('Expected a description for the ConceptScheme: %s' % uri)
 
-        scheme = ConceptScheme(uri, str(title), str(description))
-        self.cache[uri] = scheme
+        scheme = self._cache[uri] = ConceptScheme(uri, str(title), str(description))
         return scheme
 
-    def loadConcept(self, graph, subject, depth=0):
-        try:
-            concept = self._getItem(graph, subject, 'Concept', depth)
-        except (RecursionError, KeyError):
-            return None
+    def loadConcept(self, subject, graph=None):
+        uri = str(subject)
 
-        if concept:
-            return concept
-        depth += 1
+        # try and return a cached item
+        try:
+            return self._cache[uri]
+        except KeyError:
+            pass
+
+        graph = self._checkItem(subject, 'Concept', graph)
 
         # create the basic concept
-        uri = str(subject)
         prefLabel = list(graph.objects(subject=subject, predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#prefLabel')))[0]
         definition = list(graph.objects(subject=subject, predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#definition')))[0]
         concept = Concept(uri, str(prefLabel), str(definition))
-        self.cache[uri] = concept
+        self._cache[uri] = concept
 
-        # add any narrow matches
-        for obj in graph.objects(subject=subject, predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#narrowMatch')):
-            narrowMatch = self.loadConcept(graph, obj, depth)
-            if narrowMatch:
-                concept.narrowMatches.add(narrowMatch)
+        def add_matches(concept, attr):
+            attr_name = attr + 'es' # pluralise the attribute
+            for obj in graph.objects(subject=subject, predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % attr)):
+                key = str(obj)
+                try:
+                    match = self.loadConcept(obj, graph)
+                except RecursionError:
+                    continue
+                if match:
+                    getattr(concept, attr_name).add(match)
 
-        # add any broad matches
-        for obj in graph.objects(subject=subject, predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#broadMatch')):
-            broadMatch = self.loadConcept(graph, obj, depth)
-            if broadMatch:
-                concept.broadMatches.add(broadMatch)
-
-        # add any exact matches
-        for obj in graph.objects(subject=subject, predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#exactMatch')):
-            exactMatch = self.loadConcept(graph, obj, depth)
-            if exactMatch:
-                concept.exactMatches.add(exactMatch)
+        add_matches(concept, 'narrowMatch') # add any narrow matches
+        add_matches(concept, 'broadMatch') # add any broad matches
+        add_matches(concept, 'exactMatch') # add any exact matches
 
         return concept
+
+    def getConcepts(self):
+        return Concepts([self[key] for key in self._iterateTypes(['Concept'])])
+
+    def getConceptSchemes(self):
+        return Concepts([self[key] for key in self._iterateTypes(['ConceptScheme'])])
