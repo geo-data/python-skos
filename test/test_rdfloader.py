@@ -93,6 +93,16 @@ class TestRDFParsing(TestRDFLoader):
         self.assertIsInstance(match, skos.Concept)
         self.assertIn(concept, match.synonyms)
 
+    def testRelated(self):
+        concept = self.loader['http://portal.oceannet.org/test']
+        self.assertEqual(len(concept.related), 2)
+        keys = [self.getExternalResource('external2.xml'), 'http://portal.oceannet.org/test3']
+        for key in keys:
+            self.assertIn(key, concept.related)
+            match = concept.related[key]
+            self.assertIsInstance(match, skos.Concept)
+            self.assertIn(concept, match.related)
+
     def testNarrower(self):
         concept = self.loader['http://portal.oceannet.org/test2']
         key = self.getExternalResource('external2.xml')

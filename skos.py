@@ -31,6 +31,11 @@ concept_synonyms = Table('concept_synonyms', Base.metadata,
     Column('right_uri', String(255), ForeignKey('concept.uri'))
 )
 
+concept_related = Table('concept_related', Base.metadata,
+    Column('left_uri', String(255), ForeignKey('concept.uri')),
+    Column('right_uri', String(255), ForeignKey('concept.uri'))
+)
+
 concepts2schemes = Table('concepts2schemes', Base.metadata,
     Column('scheme_uri', String(255), ForeignKey('concept_scheme.uri')),
     Column('concept_uri', String(255), ForeignKey('concept.uri'))
@@ -44,91 +49,97 @@ concepts2collections = Table('concepts2collections', Base.metadata,
 class RecursionError(Exception):
     pass
 
-# This class is necessary as the first option described at
+# This function is necessary as the first option described at
 # <http://groups.google.com/group/sqlalchemy/browse_thread/thread/b4eaef1bdf132cdc?pli=1>
 # for a solution to self-referential many-to-many relationships using
 # the same property does not seem to be writable.
-class Synonyms(collections.MutableSet, collections.Mapping):
+def _create_attribute_mapping(name):
     """
-    Provides an interface to `Concept` synonyms
+    Factory function creating a class for attribute mapping
 
-    This is returned by `Concept.synonyms`.
+    The generated classes provide an interface for a bi-directional
+    relationship between synonymous attributes in a `Concept` class.
     """
 
-    def __init__(self, concept):
-        self._concept = concept
+    class AttributeJoin(collections.MutableSet, collections.Mapping):
 
-    # Implement the interface for `collections.Iterable`
-    def __iter__(self):
-        self._concept._synonyms_left.update(self._concept._synonyms_right)
-        return iter(self._concept._synonyms_left)
+        def __init__(self, concept):
+            self._left = getattr(concept, '_%s_left' % name)
+            self._right = getattr(concept, '_%s_right' % name)
 
-    # Implement the interface for `collections.Container`
-    def __contains__(self, value):
-        return value in self._concept._synonyms_left or value in self._concept._synonyms_right
+        # Implement the interface for `collections.Iterable`
+        def __iter__(self):
+            self._left.update(self._right)
+            return iter(self._left)
 
-    # Implement the interface for `collections.Sized`
-    def __len__(self):
-        return len(set(self._concept._synonyms_left.keys() + self._concept._synonyms_right.keys()))
+        # Implement the interface for `collections.Container`
+        def __contains__(self, value):
+            return value in self._left or value in self._right
 
-    # Implement the interface for `collections.MutableSet`
-    def add(self, value):
-        self._concept._synonyms_left.add(value)
+        # Implement the interface for `collections.Sized`
+        def __len__(self):
+            return len(set(self._left.keys() + self._right.keys()))
 
-    def discard(self, value):
-        self._concept._synonyms_left.discard(value)
-        self._concept._synonyms_right.discard(value)
+        # Implement the interface for `collections.MutableSet`
+        def add(self, value):
+            self._left.add(value)
 
-    def pop(self):
-        try:
-            value = self._concepts._synonyms_left.pop()
-        except KeyError:
-            value = self._concepts._synonyms_right.pop()
-            self._concepts._synonyms_left.discard(value)
-        else:
-            self._concepts._synonyms_right.discard(value)
-        return value
+        def discard(self, value):
+            self._left.discard(value)
+            self._right.discard(value)
 
-    # Implement the interface for `collections.Mapping` with the
-    # ability to delete items as well
+        def pop(self):
+            try:
+                value = self._concepts._synonyms_left.pop()
+            except KeyError:
+                value = self._concepts._synonyms_right.pop()
+                self._concepts._synonyms_left.discard(value)
+            else:
+                self._concepts._synonyms_right.discard(value)
+            return value
 
-    def __getitem__(self, key):
-        try:
-            return self._concept._synonyms_left[key]
-        except KeyError:
-            pass
+        # Implement the interface for `collections.Mapping` with the
+        # ability to delete items as well
 
-        try:
-            return self._concept._synonyms_right[key]
-        except KeyError, e:
-            raise e
+        def __getitem__(self, key):
+            try:
+                return self._left[key]
+            except KeyError:
+                pass
 
-    def __delitem__(self, key):
-        deleted = False
-        try:
-            del self._concept._synonyms_left[key]
-        except KeyError:
-            pass
-        else:
-            deleted = True
-
-        try:
-            del self._concept._synonyms_right[key]
-        except KeyError, e:
-            if not deleted:
+            try:
+                return self._right[key]
+            except KeyError, e:
                 raise e
 
-    def __repr__(self):
-        return repr(dict(self))
+        def __delitem__(self, key):
+            deleted = False
+            try:
+                del self._left[key]
+            except KeyError:
+                pass
+            else:
+                deleted = True
 
-    def __str__(self):
-        return str(dict(self))
+            try:
+                del self._right[key]
+            except KeyError, e:
+                if not deleted:
+                    raise e
 
-    def __eq__(self, other):
-        return (
-            self._concept._synonyms_right == other._concept._synonyms_right and
-            self._concept._synonyms_left == other._concept._synonyms_left
-            )
+        def __repr__(self):
+            return repr(dict(self))
+
+        def __str__(self):
+            return str(dict(self))
+
+        def __eq__(self, other):
+            return (
+                self._right == other._right and
+                self._left == other._left
+                )
+
+    return AttributeJoin
 
 class Concepts(collections.Mapping, collections.MutableSet):
     """
@@ -242,6 +253,9 @@ class InstrumentedConcepts(Concepts):
         return concepts.itervalues()
 
 
+_Synonyms = _create_attribute_mapping('synonyms')
+_Related = _create_attribute_mapping('related')
+
 class Concept(Base):
     __tablename__ = 'concept'
 
@@ -264,6 +278,15 @@ class Concept(Base):
         collection_class=InstrumentedConcepts,
         backref=backref('narrower', collection_class=InstrumentedConcepts))
 
+    # many to many Concept <-> Concept representing relationship
+    _related_left = relationship(
+        'Concept',
+        secondary=concept_related,
+        primaryjoin=uri==concept_related.c.left_uri,
+        secondaryjoin=uri==concept_related.c.right_uri,
+        collection_class=InstrumentedConcepts,
+        backref=backref('_related_right', collection_class=InstrumentedConcepts))
+
     # many to many Concept <-> Concept representing exact matches
     _synonyms_left = relationship(
         'Concept',
@@ -274,13 +297,22 @@ class Concept(Base):
         backref=backref('_synonyms_right', collection_class=InstrumentedConcepts))
 
     def _getSynonyms(self):
-        return Synonyms(self)
+        return _Synonyms(self)
 
     def _setSynonyms(self, values):
         self._synonyms_left = values
         self._synonyms_right = {}
 
     synonyms = synonym('_synonyms_left', descriptor=property(_getSynonyms, _setSynonyms))
+
+    def _getRelated(self):
+        return _Related(self)
+
+    def _setRelated(self, values):
+        self._related_left = values
+        self._related_right = {}
+
+    related = synonym('_related_left', descriptor=property(_getRelated, _setRelated))
 
     def __repr__(self):
         return "<%s('%s')>" % (self.__class__.__name__, self.uri)
@@ -383,6 +415,7 @@ class RDFLoader(collections.Mapping):
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#narrower'),
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'),
             rdflib.URIRef('http://www.w3.org/2006/12/owl2-xml#sameAs'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#related'),
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#member')
             )
 
@@ -435,6 +468,7 @@ class RDFLoader(collections.Mapping):
         attrs = {
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#narrower'): 'narrower',
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#broader'): 'broader',
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#related'): 'related',
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'): 'synonyms',
             rdflib.URIRef('http://www.w3.org/2006/12/owl2-xml#sameAs'): 'synonyms'
             }

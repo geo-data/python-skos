@@ -7,6 +7,8 @@
     <skos:definition>Includes all parameters covering the strength of acoustic signal return, including absolute measurements of returning signal strength as well as parameters expressed as backscatter (the proportion of transmitted signal returned)</skos:definition>
     <dc:date>2012-04-25T08:43:53.808+0000</dc:date>
     <owlxml:sameAs rdf:resource="./external1.xml"/>
+    <skos:related rdf:resource="./external2.xml"/>
+    <skos:related rdf:resource="http://portal.oceannet.org/test3"/>
   </skos:Concept>
   <skos:Concept rdf:about="http://portal.oceannet.org/test2">
     <skos:prefLabel>More testing</skos:prefLabel>
@@ -23,6 +25,7 @@
       <skos:Concept rdf:about="http://portal.oceannet.org/test3">
         <skos:prefLabel>Another test concept</skos:prefLabel>
         <skos:definition>Just another concept</skos:definition>
+        <skos:related rdf:resource="http://portal.oceannet.org/test"/>
         <owlxml:sameAs rdf:resource="http://portal.oceannet.org/test2"/>
       </skos:Concept>
     </skos:member>
