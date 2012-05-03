@@ -1,18 +1,19 @@
 <?xml version="1.0"?>
-<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:owlxml="http://www.w3.org/2006/12/owl2-xml#">
   <skos:Concept rdf:about="http://portal.oceannet.org/test">
-    <skos:prefLabel>Acoustic backscatter in the water column</skos:prefLabel>
+    <skos:prefLabel>Acoustic backscatter in the water
+    column</skos:prefLabel>
     <skos:altLabel>Acc_bksctr</skos:altLabel>
     <skos:definition>Includes all parameters covering the strength of acoustic signal return, including absolute measurements of returning signal strength as well as parameters expressed as backscatter (the proportion of transmitted signal returned)</skos:definition>
     <dc:date>2012-04-25T08:43:53.808+0000</dc:date>
-    <skos:exactMatch rdf:resource="./external1.xml"/>
+    <owlxml:sameAs rdf:resource="./external1.xml"/>
   </skos:Concept>
   <skos:Concept rdf:about="http://portal.oceannet.org/test2">
     <skos:prefLabel>More testing</skos:prefLabel>
     <skos:altLabel>testing</skos:altLabel>
     <skos:definition>Something about testing</skos:definition>
     <dc:date>2012-04-26T08:43:53.808+0000</dc:date>
-    <skos:narrowMatch rdf:resource="./external2.xml"/>
+    <skos:narrower rdf:resource="./external2.xml"/>
   </skos:Concept>
   <skos:Collection rdf:about="http://portal.oceannet.org/collection">
     <dc:title>Test Collection</dc:title>
@@ -22,7 +23,7 @@
       <skos:Concept rdf:about="http://portal.oceannet.org/test3">
         <skos:prefLabel>Another test concept</skos:prefLabel>
         <skos:definition>Just another concept</skos:definition>
-        <skos:exactMatch rdf:resource="http://portal.oceannet.org/test2"/>
+        <owlxml:sameAs rdf:resource="http://portal.oceannet.org/test2"/>
       </skos:Concept>
     </skos:member>
   </skos:Collection>

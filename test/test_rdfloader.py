@@ -85,21 +85,21 @@ class TestRDFParsing(TestRDFLoader):
     def getExternalResource(self, resource):
         return 'file://' + os.path.join(os.path.dirname(os.path.abspath(__file__)), resource)
     
-    def testExactMatches(self):
+    def testSynonyms(self):
         concept = self.loader['http://portal.oceannet.org/test']
         key = self.getExternalResource('external1.xml')
-        self.assertIn(key, concept.exactMatches)
-        match = concept.exactMatches[key]
+        self.assertIn(key, concept.synonyms)
+        match = concept.synonyms[key]
         self.assertIsInstance(match, skos.Concept)
-        self.assertIn(concept, match.exactMatches)
+        self.assertIn(concept, match.synonyms)
 
-    def testNarrowMatches(self):
+    def testNarrower(self):
         concept = self.loader['http://portal.oceannet.org/test2']
         key = self.getExternalResource('external2.xml')
-        self.assertIn(key, concept.narrowMatches)
-        match = concept.narrowMatches[key]
+        self.assertIn(key, concept.narrower)
+        match = concept.narrower[key]
         self.assertIsInstance(match, skos.Concept)
-        self.assertIn(concept, match.broadMatches)
+        self.assertIn(concept, match.broader)
 
     def testFlattening(self):
         self.loader.flat = True

@@ -9,8 +9,8 @@ xmlns:dc="http://purl.org/dc/elements/1.1/">
 <skos:altLabel>theme</skos:altLabel>
 <skos:definition>Keyword identifies a particular subject or topic</skos:definition>
 <dc:date>2012-05-01T17:20:32.429+0000</dc:date>
-<skos:broadMatch rdf:resource="http://vocab.ndg.nerc.ac.uk/term/L191/1/SDNKG03" /> 
-<skos:narrowMatch rdf:resource="http://vocab.ndg.nerc.ac.uk/term/P021/73/A01X" /> 
-<skos:narrowMatch rdf:resource="http://vocab.ndg.nerc.ac.uk/term/P021/73/ZZZZ" /> 
+<skos:broader rdf:resource="http://vocab.ndg.nerc.ac.uk/term/L191/1/SDNKG03" /> 
+<skos:narrower rdf:resource="http://vocab.ndg.nerc.ac.uk/term/P021/73/A01X" /> 
+<skos:narrower rdf:resource="http://vocab.ndg.nerc.ac.uk/term/P021/73/ZZZZ" /> 
 </skos:Concept>
 </rdf:RDF> 

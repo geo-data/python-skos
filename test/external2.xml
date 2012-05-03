@@ -8,6 +8,7 @@ xmlns:dc="http://purl.org/dc/elements/1.1/">
 <skos:prefLabel>EARTH SCIENCE &gt; Oceans &gt; Ocean Acoustics &gt; Acoustic Scattering</skos:prefLabel>
 <skos:altLabel></skos:altLabel>
 <skos:definition></skos:definition>
-<dc:date>2012-05-01T17:21:21.903+0000</dc:date><skos:broadMatch rdf:resource="http://vocab.ndg.nerc.ac.uk/term/P021/73/ASAM" /> 
+<dc:date>2012-05-01T17:21:21.903+0000</dc:date>
+<skos:broader rdf:resource="http://vocab.ndg.nerc.ac.uk/term/P021/73/ASAM" /> 
 </skos:Concept>
 </rdf:RDF> 

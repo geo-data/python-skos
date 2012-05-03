@@ -61,16 +61,16 @@ class TestConcept(TestCase):
         concept = results[0]
         self.assertEqual(self.obj, concept)
 
-    def testExactMatches(self):
+    def testSynonyms(self):
         session1 = self.Session()
         session2 = self.Session()
 
         child_concepts = self.getChildConcepts()
-        self.obj.exactMatches = child_concepts
+        self.obj.synonyms = child_concepts
 
         # check the backreferencing is working
         for concept in child_concepts.itervalues():
-            self.assertIn(concept, self.obj.exactMatches)
+            self.assertIn(concept, self.obj.synonyms)
 
         # add the object to session1
         session1.begin(subtransactions=True)
@@ -84,7 +84,7 @@ class TestConcept(TestCase):
         self.assertEqual(len(results), 1)
         concept = results[0]
         self.assertEqual(self.obj, concept)
-        self.assertEqual(self.obj.exactMatches, concept.exactMatches)
+        self.assertEqual(self.obj.synonyms, concept.synonyms)
         
     def testBroadness(self):
         session1 = self.Session()
@@ -92,7 +92,7 @@ class TestConcept(TestCase):
 
         # add some narrow matches to this broader concept
         child_concepts = self.getChildConcepts()
-        self.obj.narrowMatches = child_concepts
+        self.obj.narrower = child_concepts
 
         # add the object to session1
         session1.begin(subtransactions=True)
@@ -106,11 +106,11 @@ class TestConcept(TestCase):
         self.assertEqual(len(results), 1)
         concept = results[0]
         self.assertEqual(self.obj, concept)
-        self.assertEqual(self.obj.narrowMatches, concept.narrowMatches)
+        self.assertEqual(self.obj.narrower, concept.narrower)
 
         # check the backreferencing is working
-        for child in concept.narrowMatches.itervalues():
-            self.assertIn(concept, child.broadMatches)
+        for child in concept.narrower.itervalues():
+            self.assertIn(concept, child.broader)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

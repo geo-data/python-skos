@@ -26,7 +26,7 @@ concept_broader = Table('concept_broader', Base.metadata,
     Column('narrower_uri', String(255), ForeignKey('concept.uri'))
 )
 
-concept_exact = Table('concept_exact', Base.metadata,
+concept_synonyms = Table('concept_synonyms', Base.metadata,
     Column('left_uri', String(255), ForeignKey('concept.uri')),
     Column('right_uri', String(255), ForeignKey('concept.uri'))
 )
@@ -48,11 +48,11 @@ class RecursionError(Exception):
 # <http://groups.google.com/group/sqlalchemy/browse_thread/thread/b4eaef1bdf132cdc?pli=1>
 # for a solution to self-referential many-to-many relationships using
 # the same property does not seem to be writable.
-class ExactMatches(collections.MutableSet, collections.Mapping):
+class Synonyms(collections.MutableSet, collections.Mapping):
     """
-    Provides an interface to `Concept` exact matches
+    Provides an interface to `Concept` synonyms
 
-    This is returned by `Concept.exactMatches`.
+    This is returned by `Concept.synonyms`.
     """
 
     def __init__(self, concept):
@@ -60,33 +60,33 @@ class ExactMatches(collections.MutableSet, collections.Mapping):
 
     # Implement the interface for `collections.Iterable`
     def __iter__(self):
-        self._concept._exactMatches_left.update(self._concept._exactMatches_right)
-        return iter(self._concept._exactMatches_left)
+        self._concept._synonyms_left.update(self._concept._synonyms_right)
+        return iter(self._concept._synonyms_left)
 
     # Implement the interface for `collections.Container`
     def __contains__(self, value):
-        return value in self._concept._exactMatches_left or value in self._concept._exactMatches_right
+        return value in self._concept._synonyms_left or value in self._concept._synonyms_right
 
     # Implement the interface for `collections.Sized`
     def __len__(self):
-        return len(set(self._concept._exactMatches_left.keys() + self._concept._exactMatches_right.keys()))
+        return len(set(self._concept._synonyms_left.keys() + self._concept._synonyms_right.keys()))
 
     # Implement the interface for `collections.MutableSet`
     def add(self, value):
-        self._concept._exactMatches_left.add(value)
+        self._concept._synonyms_left.add(value)
 
     def discard(self, value):
-        self._concept._exactMatches_left.discard(value)
-        self._concept._exactMatches_right.discard(value)
+        self._concept._synonyms_left.discard(value)
+        self._concept._synonyms_right.discard(value)
 
     def pop(self):
         try:
-            value = self._concepts._exactMatches_left.pop()
+            value = self._concepts._synonyms_left.pop()
         except KeyError:
-            value = self._concepts._exactMatches_right.pop()
-            self._concepts._exactMatches_left.discard(value)
+            value = self._concepts._synonyms_right.pop()
+            self._concepts._synonyms_left.discard(value)
         else:
-            self._concepts._exactMatches_right.discard(value)
+            self._concepts._synonyms_right.discard(value)
         return value
 
     # Implement the interface for `collections.Mapping` with the
@@ -94,26 +94,26 @@ class ExactMatches(collections.MutableSet, collections.Mapping):
 
     def __getitem__(self, key):
         try:
-            return self._concept._exactMatches_left[key]
+            return self._concept._synonyms_left[key]
         except KeyError:
             pass
 
         try:
-            return self._concept._exactMatches_right[key]
+            return self._concept._synonyms_right[key]
         except KeyError, e:
             raise e
 
     def __delitem__(self, key):
         deleted = False
         try:
-            del self._concept._exactMatches_left[key]
+            del self._concept._synonyms_left[key]
         except KeyError:
             pass
         else:
             deleted = True
 
         try:
-            del self._concept._exactMatches_right[key]
+            del self._concept._synonyms_right[key]
         except KeyError, e:
             if not deleted:
                 raise e
@@ -126,8 +126,8 @@ class ExactMatches(collections.MutableSet, collections.Mapping):
 
     def __eq__(self, other):
         return (
-            self._concept._exactMatches_right == other._concept._exactMatches_right and
-            self._concept._exactMatches_left == other._concept._exactMatches_left
+            self._concept._synonyms_right == other._concept._synonyms_right and
+            self._concept._synonyms_left == other._concept._synonyms_left
             )
 
 class Concepts(collections.Mapping, collections.MutableSet):
@@ -256,31 +256,31 @@ class Concept(Base):
 
     # many to many Concept <-> Concept representing broadness <->
     # narrowness
-    broadMatches = relationship(
+    broader = relationship(
         'Concept',
         secondary=concept_broader,
         primaryjoin=uri==concept_broader.c.narrower_uri,
         secondaryjoin=uri==concept_broader.c.broader_uri,
         collection_class=InstrumentedConcepts,
-        backref=backref('narrowMatches', collection_class=InstrumentedConcepts))
+        backref=backref('narrower', collection_class=InstrumentedConcepts))
 
     # many to many Concept <-> Concept representing exact matches
-    _exactMatches_left = relationship(
+    _synonyms_left = relationship(
         'Concept',
-        secondary=concept_exact,
-        primaryjoin=uri==concept_exact.c.left_uri,
-        secondaryjoin=uri==concept_exact.c.right_uri,
+        secondary=concept_synonyms,
+        primaryjoin=uri==concept_synonyms.c.left_uri,
+        secondaryjoin=uri==concept_synonyms.c.right_uri,
         collection_class=InstrumentedConcepts,
-        backref=backref('_exactMatches_right', collection_class=InstrumentedConcepts))
+        backref=backref('_synonyms_right', collection_class=InstrumentedConcepts))
 
-    def _getExactMatches(self):
-        return ExactMatches(self)
+    def _getSynonyms(self):
+        return Synonyms(self)
 
-    def _setExactMatches(self, values):
-        self._exactMatches_left = values
-        self._exactMatches_right = {}
+    def _setSynonyms(self, values):
+        self._synonyms_left = values
+        self._synonyms_right = {}
 
-    exactMatches = synonym('_exactMatches_left', descriptor=property(_getExactMatches, _setExactMatches))
+    synonyms = synonym('_synonyms_left', descriptor=property(_getSynonyms, _setSynonyms))
 
     def __repr__(self):
         return "<%s('%s')>" % (self.__class__.__name__, self.uri)
@@ -379,9 +379,10 @@ class RDFLoader(collections.Mapping):
             resolved = set()
 
         resolvable_predicates = (
-            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#broadMatch'),
-            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#narrowMatch'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#broader'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#narrower'),
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'),
+            rdflib.URIRef('http://www.w3.org/2006/12/owl2-xml#sameAs'),
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#member')
             )
 
@@ -431,14 +432,19 @@ class RDFLoader(collections.Mapping):
             cache[uri] = Concept(uri, str(label), str(defn))
             concepts.add(uri)
 
-        for predicate in ('narrowMatch', 'broadMatch', 'exactMatch'):
-            attr = predicate + 'es'
-            for subject, object_ in graph.subject_objects(predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % predicate)):
+        attrs = {
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#narrower'): 'narrower',
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#broader'): 'broader',
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'): 'synonyms',
+            rdflib.URIRef('http://www.w3.org/2006/12/owl2-xml#sameAs'): 'synonyms'
+            }
+        for predicate, attr in attrs.iteritems():
+            for subject, object_ in graph.subject_objects(predicate=predicate):
                 try:
                     match = cache[str(object_)]
                 except KeyError:
                     continue
-                debug('adding %s to %s as %s', object_, subject, predicate)
+                debug('adding %s to %s as %s', object_, subject, attr)
                 getattr(cache[str(subject)], attr).add(match)
 
         return concepts
