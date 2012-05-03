@@ -36,6 +36,11 @@ concepts2schemes = Table('concepts2schemes', Base.metadata,
     Column('concept_uri', String(255), ForeignKey('concept.uri'))
 )
 
+concepts2collections = Table('concepts2collections', Base.metadata,
+    Column('collection_uri', String(255), ForeignKey('collection.uri')),
+    Column('concept_uri', String(255), ForeignKey('concept.uri'))
+)
+
 class RecursionError(Exception):
     pass
 
@@ -323,8 +328,40 @@ class ConceptScheme(Base):
     def __eq__(self, other):
         return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'title', 'description', 'concepts')])
 
+class Collection(Base):
+    """
+    Represents a skos:Collection
+    """
+
+    __tablename__ = 'collection'
+
+    uri = Column(String(255), primary_key=True, nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+
+    def __init__(self, uri, title, description=None):
+        self.uri = uri
+        self.title = title
+        self.description = description
+
+    members = relationship(
+        'Concept',
+        secondary=concepts2collections,
+        collection_class=InstrumentedConcepts,
+        backref=backref('collections', collection_class=InstrumentedConcepts))
+
+    def __repr__(self):
+        return "<%s('%s')>" % (self.__class__.__name__, self.uri)
+
+    def __hash__(self):
+        return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'title', 'description'))))
+
+    def __eq__(self, other):
+        return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'title', 'description', 'members')])
+
 
 import rdflib
+from itertools import chain, islice
 class RDFLoader(collections.Mapping):
     def __init__(self, graph, max_depth=0, flat=False):
         self.max_depth = max_depth
@@ -344,12 +381,14 @@ class RDFLoader(collections.Mapping):
         resolvable_predicates = (
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#broadMatch'),
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#narrowMatch'),
-            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#exactMatch')
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#member')
             )
 
         resolvable_objects = (
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#ConceptScheme'),
-            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#Concept')
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#Concept'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#Collection')
             )
 
         # add existing resolved objects
@@ -370,6 +409,9 @@ class RDFLoader(collections.Mapping):
             self._resolveGraph(subgraph, depth+1, resolved)
 
     def _iterateType(self, graph, type_):
+        """
+        Iterate over all subjects of a specific SKOS type
+        """
         predicate = rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
         object_ = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % type_)
         for subject in graph.subjects(predicate=predicate, object=object_):
@@ -401,6 +443,30 @@ class RDFLoader(collections.Mapping):
 
         return concepts
 
+    def _loadCollections(self, graph, cache):
+        # generate all the collections
+        collections = set()
+        pred_title = rdflib.URIRef('http://purl.org/dc/elements/1.1/title')
+        pred_description = rdflib.URIRef('http://purl.org/dc/elements/1.1/description')
+        for subject in self._iterateType(graph, 'Collection'):
+            uri = str(subject)
+            # create the basic concept
+            title = graph.value(subject=subject, predicate=pred_title)
+            description = graph.value(subject=subject, predicate=pred_description)
+            debug('creating Collection %s', uri)
+            cache[uri] = Collection(uri, str(title), str(description))
+            collections.add(uri)
+
+        for subject, object_ in graph.subject_objects(predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#member')):
+            try:
+                member = cache[str(object_)]
+            except KeyError:
+                continue
+            debug('adding %s to %s as a member', object_, subject)
+            cache[str(subject)].members.add(member)
+
+        return collections
+
     def _loadConceptSchemes(self, graph, cache):
         # generate all the schemes
         schemes = set()
@@ -418,15 +484,16 @@ class RDFLoader(collections.Mapping):
         return schemes
 
     def load(self, graph):
-        from itertools import chain
         cache = {}
         self._concepts = [str(subj) for subj in self._iterateType(graph, 'Concept')]
+        self._collections = [str(subj) for subj in self._iterateType(graph, 'Collection')]
         self._schemes = [str(subj) for subj in self._iterateType(graph, 'ConceptScheme')]
         self._resolveGraph(graph)
         self._flat_concepts = self._loadConcepts(graph, cache)
+        self._flat_collections = self._loadCollections(graph, cache)
         self._flat_schemes = self._loadConceptSchemes(graph, cache)
         self._flat_cache = cache # all objects
-        self._cache = dict((uri, cache[uri]) for uri in (chain(self._concepts, self._schemes)))
+        self._cache = dict((uri, cache[uri]) for uri in (chain(self._concepts, self._schemes, self._collections)))
 
     def _getAttr(self, name, flat=None):
         if flat is None:
@@ -466,3 +533,9 @@ class RDFLoader(collections.Mapping):
         schemes = self._getAttr('_schemes', flat)
 
         return Concepts([cache[key] for key in schemes])
+
+    def getCollections(self, flat=None):
+        cache = self._getCache(flat)
+        collections = self._getAttr('_collections', flat)
+
+        return Concepts([cache[key] for key in collections])

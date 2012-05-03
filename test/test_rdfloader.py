@@ -28,6 +28,8 @@ class TestRDFLoader(TestCase):
         return [
             'http://portal.oceannet.org/test',
             'http://portal.oceannet.org/test2',
+            'http://portal.oceannet.org/test3',
+            'http://portal.oceannet.org/collection',
             'http:/example.com/thesaurus'
             ]
 
@@ -42,7 +44,7 @@ class TestRDFLoader(TestCase):
         self.assertSequenceEqual(received, expected)
 
     def testLen(self):
-        self.assertEqual(len(self.loader), 3)
+        self.assertEqual(len(self.loader), 5)
 
     def testGetItem(self):
         value = self.loader['http://portal.oceannet.org/test']
@@ -54,7 +56,7 @@ class TestRDFLoader(TestCase):
     def testGetConcepts(self):
         concepts = self.loader.getConcepts()
         self.assertIsInstance(concepts, skos.Concepts)
-        self.assertEqual(len(concepts), 2)
+        self.assertEqual(len(concepts), 3)
         for concept in concepts.itervalues():
             self.assertIsInstance(concept, skos.Concept)
 
@@ -64,6 +66,13 @@ class TestRDFLoader(TestCase):
         self.assertEqual(len(schemes), 1)
         for scheme in schemes.itervalues():
             self.assertIsInstance(scheme, skos.ConceptScheme)
+
+    def testGetCollections(self):
+        collections = self.loader.getCollections()
+        self.assertIsInstance(collections, skos.Concepts)
+        self.assertEqual(len(collections), 1)
+        for collection in collections.itervalues():
+            self.assertIsInstance(collection, skos.Collection)
 
 class TestRDFParsing(TestRDFLoader):
     """
@@ -94,7 +103,7 @@ class TestRDFParsing(TestRDFLoader):
 
     def testFlattening(self):
         self.loader.flat = True
-        self.assertEqual(len(self.loader), 5)
+        self.assertEqual(len(self.loader), 7)
         self.assertIn(self.getExternalResource('external2.xml'), self.loader)
 
 if __name__ == '__main__':

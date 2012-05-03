@@ -14,4 +14,16 @@
     <dc:date>2012-04-26T08:43:53.808+0000</dc:date>
     <skos:narrowMatch rdf:resource="./external2.xml"/>
   </skos:Concept>
+  <skos:Collection rdf:about="http://portal.oceannet.org/collection">
+    <dc:title>Test Collection</dc:title>
+    <dc:description>A collection of concepts used as a test</dc:description>
+    <skos:member rdf:resource="http://portal.oceannet.org/test2"/>
+    <skos:member>
+      <skos:Concept rdf:about="http://portal.oceannet.org/test3">
+        <skos:prefLabel>Another test concept</skos:prefLabel>
+        <skos:definition>Just another concept</skos:definition>
+        <skos:exactMatch rdf:resource="http://portal.oceannet.org/test2"/>
+      </skos:Concept>
+    </skos:member>
+  </skos:Collection>
 </rdf:RDF>

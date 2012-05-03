@@ -5,27 +5,27 @@ from sqlalchemy.orm import sessionmaker
 import skos
 from test_concept import TestCase
 
-class TestConceptScheme(TestCase):
+class TestCollection(TestCase):
     """
-    A base class used for testing `ConceptScheme` objects
+    A base class used for testing `Collection` objects
     """
 
     def getTestObj(self):
-        return skos.ConceptScheme('uri', 'title', 'description')
+        return skos.Collection('uri', 'title', 'description')
 
     def testEqual(self):
-        scheme = self.getTestObj()
-        self.assertEqual(self.obj, scheme)
+        collection = self.getTestObj()
+        self.assertEqual(self.obj, collection)
 
-        scheme.concepts = self.getChildConcepts()
-        self.obj.concepts = self.getChildConcepts()
-        self.assertEqual(self.obj, scheme)
+        collection.members = self.getChildConcepts()
+        self.obj.members = self.getChildConcepts()
+        self.assertEqual(self.obj, collection)
     
     def testInsert(self):
         session1 = self.Session()
         session2 = self.Session()
 
-        self.obj.concepts = self.getChildConcepts()
+        self.obj.members = self.getChildConcepts()
         
         # add the object to session1
         session1.begin(subtransactions=True)
@@ -35,11 +35,11 @@ class TestConceptScheme(TestCase):
         # query on session2 so we know we're using an object created
         # from scratch by sqlalchemy, not just returned from the
         # session1 cache.
-        results = list(session2.query(skos.ConceptScheme).filter_by(uri=self.obj.uri))
+        results = list(session2.query(skos.Collection).filter_by(uri=self.obj.uri))
         self.assertEqual(len(results), 1)
-        scheme = results[0]
-        self.assertEqual(self.obj, scheme)
-        self.assertEqual(len(scheme.concepts), 2)
+        collection = results[0]
+        self.assertEqual(self.obj, collection)
+        self.assertEqual(len(collection.members), 2)
 
 if __name__ == '__main__':
     import unittest
