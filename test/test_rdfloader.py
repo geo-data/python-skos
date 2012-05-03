@@ -92,13 +92,10 @@ class TestRDFParsing(TestRDFLoader):
         self.assertIsInstance(match, skos.Concept)
         self.assertIn(concept, match.broadMatches)
 
-    def testParsingRestraint(self):
-        """
-        Ensure that the graph does not change after parsing
-        """
-        self.assertEqual(len(self.loader), 3)
-        concept = self.loader['http://portal.oceannet.org/test']
-        self.assertEqual(len(self.loader), 3)
+    def testFlattening(self):
+        self.loader.flat = True
+        self.assertEqual(len(self.loader), 5)
+        self.assertIn(self.getExternalResource('external2.xml'), self.loader)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

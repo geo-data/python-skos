@@ -232,7 +232,6 @@ class InstrumentedConcepts(Concepts):
         The argument can be a dictionary-like container of concepts or
         a sequence of concepts.
         """
-        debug('adding concepts %s', concepts)
         if not isinstance(concepts, collections.Mapping):
             return iter(concepts)
         return concepts.itervalues()
@@ -279,7 +278,7 @@ class Concept(Base):
     exactMatches = synonym('_exactMatches_left', descriptor=property(_getExactMatches, _setExactMatches))
 
     def __repr__(self):
-        return "<%s('%s', '%s')>" % (self.__class__.__name__, self.uri, self.prefLabel)
+        return "<%s('%s')>" % (self.__class__.__name__, self.uri)
 
     def __hash__(self):
         return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'prefLabel', 'definition'))))
@@ -326,171 +325,144 @@ class ConceptScheme(Base):
 
 
 import rdflib
-from itertools import chain
 class RDFLoader(collections.Mapping):
-    """
-    Turn a RDF graph in to SKOS classes
-    """
-
-    graph = None
-    max_depth = None
-    def __init__(self, graph, max_depth=float('inf')):
-        self.graph = graph
-        self._cache = {}
+    def __init__(self, graph, max_depth=0, flat=False):
         self.max_depth = max_depth
-        self._parsing_depth = 0
-        self.types = ('Concept', 'ConceptScheme')
+        self.flat = flat
+        self.load(graph)
 
-    def _iterateTypes(self, types=None):
-        if not types:
-            types = self.types
+    def _resolveGraph(self, graph, depth=0, resolved=None):
+        """
+        Resolve external RDF resources
+        """
+        if depth >= self.max_depth:
+            return
 
-        for subject_type in types:
-            if subject_type not in self.types:
-                raise ValueError('Bad SKOS type: %s' % subject_type)
+        if resolved is None:
+            resolved = set()
 
-            for subject in self.graph.subjects(
-                object=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type),
-                predicate=rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')):
-                yield str(subject)
+        resolvable_predicates = (
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#broadMatch'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#narrowMatch'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#exactMatch')
+            )
+
+        resolvable_objects = (
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#ConceptScheme'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#Concept')
+            )
+
+        # add existing resolved objects
+        for object_ in resolvable_objects:
+            resolved.update((str(subject)for subject in graph.subjects(predicate=rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), object=object_)))
+
+        unresolved = set()
+        for predicate in resolvable_predicates:
+            for subject, object_ in graph.subject_objects(predicate=predicate):
+                uri = str(object_)
+                if uri not in resolved:
+                    unresolved.add(uri)
+                    resolved.add(uri)
+
+        for uri in unresolved:
+            info('parsing %s', uri)
+            subgraph = graph.parse(uri)
+            self._resolveGraph(subgraph, depth+1, resolved)
+
+    def _iterateType(self, graph, type_):
+        predicate = rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+        object_ = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % type_)
+        for subject in graph.subjects(predicate=predicate, object=object_):
+            yield subject
+
+    def _loadConcepts(self, graph, cache):
+        # generate all the concepts
+        concepts = set()
+        prefLabel = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#prefLabel')
+        definition = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#definition')
+        for subject in self._iterateType(graph, 'Concept'):
+            uri = str(subject)
+            # create the basic concept
+            label = graph.value(subject=subject, predicate=prefLabel)
+            defn = graph.value(subject=subject, predicate=definition)
+            debug('creating Concept %s', uri)
+            cache[uri] = Concept(uri, str(label), str(defn))
+            concepts.add(uri)
+
+        for predicate in ('narrowMatch', 'broadMatch', 'exactMatch'):
+            attr = predicate + 'es'
+            for subject, object_ in graph.subject_objects(predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % predicate)):
+                try:
+                    match = cache[str(object_)]
+                except KeyError:
+                    continue
+                debug('adding %s to %s as %s', object_, subject, predicate)
+                getattr(cache[str(subject)], attr).add(match)
+
+        return concepts
+
+    def _loadConceptSchemes(self, graph, cache):
+        # generate all the schemes
+        schemes = set()
+        pred_title = rdflib.URIRef('http://purl.org/dc/elements/1.1/title')
+        pred_description = rdflib.URIRef('http://purl.org/dc/elements/1.1/description')
+        for subject in self._iterateType(graph, 'ConceptScheme'):
+            uri = str(subject)
+            # create the basic concept
+            title = graph.value(subject=subject, predicate=pred_title)
+            description = graph.value(subject=subject, predicate=pred_description)
+            debug('creating ConceptScheme %s', uri)
+            cache[uri] = ConceptScheme(uri, str(title), str(description))
+            schemes.add(uri)
+
+        return schemes
+
+    def load(self, graph):
+        from itertools import chain
+        cache = {}
+        self._concepts = [str(subj) for subj in self._iterateType(graph, 'Concept')]
+        self._schemes = [str(subj) for subj in self._iterateType(graph, 'ConceptScheme')]
+        self._resolveGraph(graph)
+        self._flat_concepts = self._loadConcepts(graph, cache)
+        self._flat_schemes = self._loadConceptSchemes(graph, cache)
+        self._flat_cache = cache # all objects
+        self._cache = dict((uri, cache[uri]) for uri in (chain(self._concepts, self._schemes)))
+
+    def _getAttr(self, name, flat=None):
+        if flat is None:
+            flat = self.flat
+        if flat:
+            name = '_flat%s' % name
+        return getattr(self, name)
+
+    def _getCache(self, flat=None):
+        return self._getAttr('_cache', flat)
 
     # Implement the interface for `collections.Iterable`
-    def __iter__(self):
-        return self._iterateTypes()
+    def __iter__(self, flat=None):
+        return iter(self._getCache(flat))
 
     # Implement the interface for `collections.Container`
-    def __contains__(self, value):
-        subject = rdflib.URIRef(value)
-        return max([(
-            subject,
-            rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type)
-            ) in self.graph for subject_type in self.types])
+    def __contains__(self, value, flat=None):
+        return value in self._getCache(flat)
 
     # Implement the interface for `collections.Sized`
-    def __len__(self):
-        return sum((1 for k in self))
+    def __len__(self, flat=None):
+        return len(self._getCache(flat))
 
     # Implement the interface for `collections.Mapping`
     def __getitem__(self, key):
         # try and return a cached item
-        try:
-            return self._cache[key]
-        except KeyError, e:
-            pass
+        return self._getCache()[key]
 
-        subject = rdflib.URIRef(key)
-        predicate = rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
-        for subject_type in self.types:
-            try:
-                loader = getattr(self, 'load' + subject_type)
-            except AttributeError:
-                raise ValueError('Bad SKOS type: %s' % subject_type)
+    def getConcepts(self, flat=None):
+        cache = self._getCache(flat)
+        concepts = self._getAttr('_concepts', flat)
 
-            object_ = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type)
+        return Concepts([cache[key] for key in concepts])
 
-            for triple in self.graph.triples((
-                    subject,
-                    predicate,
-                    object_
-                    )):
-                try:
-                    return loader(subject) # return the first value we come across
-                finally:
-                    if self._parsing_depth > 0:
-                        self._parsing_depth -= 1
+    def getConceptSchemes(self, flat=None):
+        cache = self._getCache(flat)
+        schemes = self._getAttr('_schemes', flat)
 
-        raise KeyError(key)
-
-    def _checkItem(self, subject, subject_type, graph=None):
-        if not graph:
-            graph = self.graph
-        uri = str(subject)
-
-        if (
-            subject,
-            rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type)
-            ) not in self.graph:
-            # try and parse the subject to add it to the current graph
-            if self._parsing_depth >= self.max_depth:
-                info('parsing depth (%d) exceeded for %s', self._parsing_depth, uri)
-                raise RecursionError('parsing depth (%d) exceeded for %s' % (self._parsing_depth, uri))
-
-            info('parsing %s %s', subject_type, uri)
-            # parse using a new graph object. We need a new graph
-            # because otherwise the existing graph is extended by
-            # parse which dynamically affects the content of the
-            # current RDFLoader
-            graph = rdflib.Graph()
-            graph.parse(uri)
-            self._parsing_depth += 1
-            if (
-            subject,
-            rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % subject_type)
-            ) not in graph:
-                # the newly parsed graph didn't contain the concept
-                debug('%s does not exist: %s', subject_type, uri)
-                raise KeyError('%s does not exist: %s' % (subject_type, uri))
-
-        debug('%s exists: %s', subject_type, uri)
-        return graph
-
-    def loadConceptScheme(self, subject):
-        self._checkItem(subject, 'ConceptScheme')
-
-        # create the basic concept
-        uri = str(subject)
-        try:
-            title = list(self.graph.objects(subject=subject, predicate=rdflib.URIRef('http://purl.org/dc/elements/1.1/title')))[0]
-        except IndexError:
-            raise ValueError('Expected a title for the ConceptScheme: %s' % uri)
-
-        try:
-            description = list(self.graph.objects(subject=subject, predicate=rdflib.URIRef('http://purl.org/dc/elements/1.1/description')))[0]
-        except IndexError:
-            raise ValueError('Expected a description for the ConceptScheme: %s' % uri)
-
-        scheme = self._cache[uri] = ConceptScheme(uri, str(title), str(description))
-        return scheme
-
-    def loadConcept(self, subject, graph=None):
-        uri = str(subject)
-
-        # try and return a cached item
-        try:
-            return self._cache[uri]
-        except KeyError:
-            pass
-
-        graph = self._checkItem(subject, 'Concept', graph)
-
-        # create the basic concept
-        prefLabel = list(graph.objects(subject=subject, predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#prefLabel')))[0]
-        definition = list(graph.objects(subject=subject, predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#definition')))[0]
-        concept = Concept(uri, str(prefLabel), str(definition))
-        self._cache[uri] = concept
-
-        def add_matches(concept, attr):
-            attr_name = attr + 'es' # pluralise the attribute
-            for obj in graph.objects(subject=subject, predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#%s' % attr)):
-                key = str(obj)
-                try:
-                    match = self.loadConcept(obj, graph)
-                except RecursionError:
-                    continue
-                if match:
-                    getattr(concept, attr_name).add(match)
-
-        add_matches(concept, 'narrowMatch') # add any narrow matches
-        add_matches(concept, 'broadMatch') # add any broad matches
-        add_matches(concept, 'exactMatch') # add any exact matches
-
-        return concept
-
-    def getConcepts(self):
-        return Concepts([self[key] for key in self._iterateTypes(['Concept'])])
-
-    def getConceptSchemes(self):
-        return Concepts([self[key] for key in self._iterateTypes(['ConceptScheme'])])
+        return Concepts([cache[key] for key in schemes])
