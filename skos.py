@@ -395,10 +395,22 @@ class Collection(Base):
 import rdflib
 from itertools import chain, islice
 class RDFLoader(collections.Mapping):
-    def __init__(self, graph, max_depth=0, flat=False):
-        self.max_depth = max_depth
-        self.flat = flat
-        self.load(graph)
+    def __init__(self, graph, max_depth=0, flat=False, normalise_uri=str):
+        if not isinstance(graph, rdflib.Graph):
+            raise TypeError('`rdflib.Graph` type expected for `graph` argument, found: %s' % type(graph))
+
+        try:
+            self.max_depth = float(max_depth)
+        except TypeError:
+            raise TypeError('Numeric type expected for `max_depth` argument, found: %s' % type(max_depth))
+
+        self.flat = bool(flat)
+
+        if not callable(normalise_uri):
+            raise TypeError('callable expected for `normalise_uri` argument')
+        self.normalise_uri = normalise_uri
+
+        self.load(graph)       # convert the graph to our object model
 
     def _resolveGraph(self, graph, depth=0, resolved=None):
         """
@@ -425,17 +437,22 @@ class RDFLoader(collections.Mapping):
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#Collection')
             )
 
+        normalise_uri = self.normalise_uri
         # add existing resolved objects
         for object_ in resolvable_objects:
-            resolved.update((str(subject)for subject in graph.subjects(predicate=rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), object=object_)))
+            resolved.update((normalise_uri(subject) for subject in graph.subjects(predicate=rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), object=object_)))
 
         unresolved = set()
         for predicate in resolvable_predicates:
             for subject, object_ in graph.subject_objects(predicate=predicate):
-                uri = str(object_)
+                uri = normalise_uri(object_)
                 if uri not in resolved:
                     unresolved.add(uri)
-                    resolved.add(uri)
+
+        # flag the unresolved as being resolved, as that is what
+        # happens next; flagging them now prevents duplicate
+        # resolutions!
+        resolved.update(unresolved)
 
         for uri in unresolved:
             info('parsing %s', uri)
@@ -454,10 +471,11 @@ class RDFLoader(collections.Mapping):
     def _loadConcepts(self, graph, cache):
         # generate all the concepts
         concepts = set()
+        normalise_uri = self.normalise_uri
         prefLabel = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#prefLabel')
         definition = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#definition')
         for subject in self._iterateType(graph, 'Concept'):
-            uri = str(subject)
+            uri = normalise_uri(subject)
             # create the basic concept
             label = graph.value(subject=subject, predicate=prefLabel)
             defn = graph.value(subject=subject, predicate=definition)
@@ -475,21 +493,22 @@ class RDFLoader(collections.Mapping):
         for predicate, attr in attrs.iteritems():
             for subject, object_ in graph.subject_objects(predicate=predicate):
                 try:
-                    match = cache[str(object_)]
+                    match = cache[normalise_uri(object_)]
                 except KeyError:
                     continue
                 debug('adding %s to %s as %s', object_, subject, attr)
-                getattr(cache[str(subject)], attr).add(match)
+                getattr(cache[normalise_uri(subject)], attr).add(match)
 
         return concepts
 
     def _loadCollections(self, graph, cache):
         # generate all the collections
         collections = set()
+        normalise_uri = self.normalise_uri
         pred_title = rdflib.URIRef('http://purl.org/dc/elements/1.1/title')
         pred_description = rdflib.URIRef('http://purl.org/dc/elements/1.1/description')
         for subject in self._iterateType(graph, 'Collection'):
-            uri = str(subject)
+            uri = normalise_uri(subject)
             # create the basic concept
             title = graph.value(subject=subject, predicate=pred_title)
             description = graph.value(subject=subject, predicate=pred_description)
@@ -499,21 +518,22 @@ class RDFLoader(collections.Mapping):
 
         for subject, object_ in graph.subject_objects(predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#member')):
             try:
-                member = cache[str(object_)]
+                member = cache[normalise_uri(object_)]
             except KeyError:
                 continue
             debug('adding %s to %s as a member', object_, subject)
-            cache[str(subject)].members.add(member)
+            cache[normalise_uri(subject)].members.add(member)
 
         return collections
 
     def _loadConceptSchemes(self, graph, cache):
         # generate all the schemes
         schemes = set()
+        normalise_uri = self.normalise_uri
         pred_title = rdflib.URIRef('http://purl.org/dc/elements/1.1/title')
         pred_description = rdflib.URIRef('http://purl.org/dc/elements/1.1/description')
         for subject in self._iterateType(graph, 'ConceptScheme'):
-            uri = str(subject)
+            uri = normalise_uri(subject)
             # create the basic concept
             title = graph.value(subject=subject, predicate=pred_title)
             description = graph.value(subject=subject, predicate=pred_description)
@@ -525,9 +545,10 @@ class RDFLoader(collections.Mapping):
 
     def load(self, graph):
         cache = {}
-        self._concepts = [str(subj) for subj in self._iterateType(graph, 'Concept')]
-        self._collections = [str(subj) for subj in self._iterateType(graph, 'Collection')]
-        self._schemes = [str(subj) for subj in self._iterateType(graph, 'ConceptScheme')]
+        normalise_uri = self.normalise_uri
+        self._concepts = set((normalise_uri(subj) for subj in self._iterateType(graph, 'Concept')))
+        self._collections = set((normalise_uri(subj) for subj in self._iterateType(graph, 'Collection')))
+        self._schemes = set((normalise_uri(subj) for subj in self._iterateType(graph, 'ConceptScheme')))
         self._resolveGraph(graph)
         self._flat_concepts = self._loadConcepts(graph, cache)
         self._flat_collections = self._loadCollections(graph, cache)

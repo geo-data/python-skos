@@ -7,6 +7,22 @@ import unittest
 import rdflib
 import os.path
 
+class TestRDFUriNormalisation(unittest.TestCase):
+    """
+    Test type checking in constructor
+    """
+
+    def testContructorArguments(self):
+        with self.assertRaises(TypeError):
+            skos.RDFLoader('oops')
+
+        graph = rdflib.Graph()
+        with self.assertRaises(TypeError):
+            skos.RDFLoader(graph, max_depth='oops')
+
+        with self.assertRaises(TypeError):
+            skos.RDFLoader(graph, normalise_uri='oops')
+
 class TestCase(unittest.TestCase):
     
     def setUp(self):
@@ -74,6 +90,10 @@ class TestRDFLoader(TestCase):
         for collection in collections.itervalues():
             self.assertIsInstance(collection, skos.Collection)
 
+    def testFlattening(self):
+        self.loader.flat = True
+        self.assertEqual(len(self.loader), 5)
+
 class TestRDFParsing(TestRDFLoader):
     """
     Test the parsing of `RDFLoader` objects
@@ -115,6 +135,16 @@ class TestRDFParsing(TestRDFLoader):
         self.loader.flat = True
         self.assertEqual(len(self.loader), 7)
         self.assertIn(self.getExternalResource('external2.xml'), self.loader)
+
+class TestRDFUriNormalisation(TestRDFLoader):
+    """
+    Test the uri normalisation functionality
+    """
+
+    def getLoader(self, graph):
+        def normalise_uri(uri):
+            return uri.rstrip(u'/')
+        return skos.RDFLoader(graph, normalise_uri=normalise_uri)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
