@@ -36,6 +36,28 @@ class TestCase(unittest.TestCase):
 
         session.commit()
 
+    def doTestInheritance(self):
+        """
+        Ensure instances returned by the ORM are of the correct
+        derivative class when a query is made for a base class.
+        """
+        session1 = self.Session()
+        session2 = self.Session()
+
+        # add the object to session1
+        session1.begin(subtransactions=True)
+        session1.add(self.obj)
+        session1.commit()
+
+        # query on session2 so we know we're using an object created
+        # from scratch by sqlalchemy, not just returned from the
+        # session1 cache.
+        results = list(session2.query(skos.Object).filter_by(uri=self.obj.uri))
+        self.assertEqual(len(results), 1)
+        result = results[0]
+        self.assertIsInstance(result, self.obj.__class__)
+        self.assertEqual(self.obj, result)
+
 class TestConcept(TestCase):
     """
     A base class used for testing `Concept` objects
@@ -43,6 +65,9 @@ class TestConcept(TestCase):
 
     def getTestObj(self):
         return skos.Concept('uri', 'prefLabel', 'definition')
+
+    def testInheritance(self):
+        super(TestConcept, self).doTestInheritance()
 
     def testInsert(self):
         session1 = self.Session()

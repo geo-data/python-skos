@@ -13,6 +13,9 @@ class TestCollection(TestCase):
     def getTestObj(self):
         return skos.Collection('uri', 'title', 'description')
 
+    def testInheritance(self):
+        super(TestCollection, self).doTestInheritance()
+
     def testEqual(self):
         collection = self.getTestObj()
         self.assertEqual(self.obj, collection)

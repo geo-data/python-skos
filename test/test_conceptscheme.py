@@ -13,6 +13,9 @@ class TestConceptScheme(TestCase):
     def getTestObj(self):
         return skos.ConceptScheme('uri', 'title', 'description')
 
+    def testInheritance(self):
+        super(TestConceptScheme, self).doTestInheritance()
+
     def testEqual(self):
         scheme = self.getTestObj()
         self.assertEqual(self.obj, scheme)
