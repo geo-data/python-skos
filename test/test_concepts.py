@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import skos
-import unittest
+from test import unittest
 
 class TestCase(unittest.TestCase):
     """

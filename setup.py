@@ -17,11 +17,11 @@ class TestCommand(Command):
 
     def run(self):
         import os.path
-        from unittest import TestLoader, TextTestRunner
+        from test import unittest
 
         test_dir = os.path.join(os.path.dirname(__file__), 'test')
-        package_suite = TestLoader().discover(test_dir)
-        TextTestRunner(verbosity=2).run(package_suite)
+        package_suite = unittest.TestLoader().discover(test_dir)
+        unittest.TextTestRunner(verbosity=2).run(package_suite)
 
 setup(name='python-skos',
       version=__version__,

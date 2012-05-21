@@ -45,5 +45,5 @@ class TestCollection(TestCase):
         self.assertEqual(len(collection.members), 2)
 
 if __name__ == '__main__':
-    import unittest
+    from test import unittest
     unittest.main(verbosity=2)

@@ -3,7 +3,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import skos
-import unittest
+from test import unittest
 import rdflib
 import os.path
 
