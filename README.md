@@ -1,5 +1,7 @@
 # Python SKOS
 
+[![Build Status](https://secure.travis-ci.org/homme/python-skos.png)](http://travis-ci.org/homme/python-skos)
+
 ## Overview
 
 This package provides a basic implementation of *some* of the core
