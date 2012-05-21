@@ -2,7 +2,12 @@ language: python
 python:
   - 2.6
   - 2.7
+env:
+  - SQLALCHEMY_VERSION===0.7.5
+  - SQLALCHEMY_VERSION=
+  - RDFLIB_VERSION===2.4.2
+  - RDFLIB_VERSION=
 # command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install: pip install --use-mirrors rdflib sqlalchemy==0.7.6 unittest2
+install: pip install --use-mirrors rdflib$RDFLIB_VERSION sqlalchemy$SQLALCHEMY_VERSION unittest2
 # command to run tests, e.g. python setup.py test
 script:  python setup.py test
