@@ -1,6 +1,6 @@
 # Python SKOS
 
-[![Build Status](https://secure.travis-ci.org/homme/python-skos.png)](http://travis-ci.org/homme/python-skos)
+[![Build Status](https://secure.travis-ci.org/geo-data/python-skos.png)](http://travis-ci.org/geo-data/python-skos)
 
 ## Overview
 
