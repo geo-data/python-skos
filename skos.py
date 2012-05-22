@@ -541,7 +541,7 @@ class Concept(Object):
         return "<%s('%s')>" % (self.__class__.__name__, self.uri)
 
     def __hash__(self):
-        return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'prefLabel', 'definition'))))
+        return hash(''.join((getattr(self, attr) for attr in ('uri', 'prefLabel', 'definition'))))
 
     def __eq__(self, other):
         return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'prefLabel', 'definition')])
@@ -579,7 +579,7 @@ class ConceptScheme(Object):
         return "<%s('%s')>" % (self.__class__.__name__, self.uri)
 
     def __hash__(self):
-        return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'title', 'description'))))
+        return hash(''.join((getattr(self, attr) for attr in ('uri', 'title', 'description'))))
 
     def __eq__(self, other):
         return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'title', 'description', 'concepts')])
@@ -611,7 +611,7 @@ class Collection(Object):
         return "<%s('%s')>" % (self.__class__.__name__, self.uri)
 
     def __hash__(self):
-        return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'title', 'description'))))
+        return hash(''.join((getattr(self, attr) for attr in ('uri', 'title', 'description'))))
 
     def __eq__(self, other):
         return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'title', 'description', 'members')])
@@ -705,7 +705,7 @@ class RDFLoader(collections.Mapping):
             label = graph.value(subject=subject, predicate=prefLabel)
             defn = graph.value(subject=subject, predicate=definition)
             debug('creating Concept %s', uri)
-            cache[uri] = Concept(uri, str(label), str(defn))
+            cache[uri] = Concept(uri, label, defn)
             concepts.add(uri)
 
         attrs = {
@@ -738,7 +738,7 @@ class RDFLoader(collections.Mapping):
             title = graph.value(subject=subject, predicate=pred_title)
             description = graph.value(subject=subject, predicate=pred_description)
             debug('creating Collection %s', uri)
-            cache[uri] = Collection(uri, str(title), str(description))
+            cache[uri] = Collection(uri, title, description)
             collections.add(uri)
 
         for subject, object_ in graph.subject_objects(predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#member')):
@@ -763,7 +763,7 @@ class RDFLoader(collections.Mapping):
             title = graph.value(subject=subject, predicate=pred_title)
             description = graph.value(subject=subject, predicate=pred_description)
             debug('creating ConceptScheme %s', uri)
-            cache[uri] = ConceptScheme(uri, str(title), str(description))
+            cache[uri] = ConceptScheme(uri, title, description)
             schemes.add(uri)
 
         return schemes
