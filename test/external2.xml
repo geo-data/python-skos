@@ -4,7 +4,7 @@
 xmlns:skos="http://www.w3.org/2004/02/skos/core#" 
 xmlns:dc="http://purl.org/dc/elements/1.1/"> 
 <skos:Concept rdf:about='./external2.xml'>
-<skos:externalID>SDN:P041:4:G874</skos:externalID>
+<skos:notation>SDN:P041:4:G874</skos:notation>
 <skos:prefLabel>EARTH SCIENCE &gt; Oceans &gt; Ocean Acoustics &gt; Acoustic Scattering</skos:prefLabel>
 <skos:altLabel></skos:altLabel>
 <skos:definition></skos:definition>

@@ -23,8 +23,8 @@ class TestCase(unittest.TestCase):
         """
 
         return skos.Concepts([
-                skos.Concept('uri1', 'prefLabel1', 'definition1'),
-                skos.Concept('uri2', 'prefLabel2', 'definition2')
+                skos.Concept('uri1', 'prefLabel1', 'definition1', 'notation1'),
+                skos.Concept('uri2', 'prefLabel2', 'definition2', 'notation2')
             ])
 
     def createDbSchema(self):
@@ -64,7 +64,7 @@ class TestConcept(TestCase):
     """
 
     def getTestObj(self):
-        return skos.Concept('uri', 'prefLabel', 'definition')
+        return skos.Concept('uri', 'prefLabel', 'definition', 'notation')
 
     def testInheritance(self):
         super(TestConcept, self).doTestInheritance()

@@ -484,9 +484,10 @@ class Concept(Object):
 
     uri = Column(String(255), ForeignKey('object.uri'), primary_key=True)
     prefLabel = Column(String(50), nullable=False)
-    definition = Column(Text, nullable=False)
+    definition = Column(Text)
+    notation = Column(String(50))
 
-    def __init__(self, uri, prefLabel, definition):
+    def __init__(self, uri, prefLabel, definition=None, notation=None):
         super(Concept, self).__init__(uri)
         self.prefLabel = prefLabel
         self.definition = definition
