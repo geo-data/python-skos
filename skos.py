@@ -208,7 +208,7 @@ techniques...
      <Concept('http://vocab.nerc.ac.uk/collection/P01/current/ACBSADCP/')>]
 """
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 from sqlalchemy.ext.declarative import declarative_base
 #from sqlalchemy import Table, Column, Integer, String, Date, Float, ForeignKey, event
