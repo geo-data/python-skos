@@ -213,6 +213,7 @@ techniques...
 - [Python](http://www.python.org) == 2.{6,7}
 - [SQLAlchemy](http://www.sqlalchemy.org) SQLAlchemy >= 0.7.5
 - [RDFLib](http://pypi.python.org/pypi/rdflib) >= 2.4.2
+- [iso8601plus](http://pypi.python.org/pypi/iso8601plus)
 - [unittest2](http://pypi.python.org/pypi/unittest2) if running the tests with Python < 2.7
 
 ## Download

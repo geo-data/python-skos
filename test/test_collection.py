@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import skos
 from test_concept import TestCase
+from datetime import datetime
 
 class TestCollection(TestCase):
     """
@@ -11,7 +12,7 @@ class TestCollection(TestCase):
     """
 
     def getTestObj(self):
-        return skos.Collection('uri', 'title', 'description')
+        return skos.Collection('uri', 'title', 'description', datetime(2012, 5, 24, 20, 35, 34, 489923))
 
     def testInheritance(self):
         super(TestCollection, self).doTestInheritance()

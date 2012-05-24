@@ -212,7 +212,7 @@ __version__ = '0.0.3'
 
 from sqlalchemy.ext.declarative import declarative_base
 #from sqlalchemy import Table, Column, Integer, String, Date, Float, ForeignKey, event
-from sqlalchemy import Table, Column, String, Text, ForeignKey
+from sqlalchemy import Table, Column, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship, backref, synonym
 from sqlalchemy.orm.collections import collection
 import collections
@@ -597,11 +597,13 @@ class Collection(Object):
     uri = Column(String(255), ForeignKey('object.uri'), primary_key=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    date = Column(DateTime, nullable=True)
 
-    def __init__(self, uri, title, description=None):
+    def __init__(self, uri, title, description=None, date=None):
         super(Collection, self).__init__(uri)
         self.title = title
         self.description = description
+        self.date = date
 
     members = relationship(
         'Concept',
@@ -613,10 +615,10 @@ class Collection(Object):
         return "<%s('%s')>" % (self.__class__.__name__, self.uri)
 
     def __hash__(self):
-        return hash(''.join((getattr(self, attr) for attr in ('uri', 'title', 'description'))))
+        return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'title', 'description', 'date'))))
 
     def __eq__(self, other):
-        return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'title', 'description', 'members')])
+        return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'title', 'description', 'members', 'date')])
 
 
 import rdflib
@@ -638,6 +640,16 @@ class RDFLoader(collections.Mapping):
         self.normalise_uri = normalise_uri
 
         self.load(graph)       # convert the graph to our object model
+
+    def _dcDateToDatetime(self, date):
+        """
+        Convert a Dublin Core date to a datetime object
+        """
+        from iso8601 import parse_date, ParseError
+        try:
+            return parse_date(date)
+        except ParseError:
+            return None
 
     def _resolveGraph(self, graph, depth=0, resolved=None):
         """
@@ -736,13 +748,15 @@ class RDFLoader(collections.Mapping):
         normalise_uri = self.normalise_uri
         pred_title = rdflib.URIRef('http://purl.org/dc/elements/1.1/title')
         pred_description = rdflib.URIRef('http://purl.org/dc/elements/1.1/description')
+        pred_date = rdflib.URIRef('http://purl.org/dc/elements/1.1/date')
         for subject in self._iterateType(graph, 'Collection'):
             uri = normalise_uri(subject)
             # create the basic concept
             title = graph.value(subject=subject, predicate=pred_title)
             description = graph.value(subject=subject, predicate=pred_description)
+            date = self._dcDateToDatetime(graph.value(subject=subject, predicate=pred_date))
             debug('creating Collection %s', uri)
-            cache[uri] = Collection(uri, title, description)
+            cache[uri] = Collection(uri, title, description, date)
             collections.add(uri)
 
         for subject, object_ in graph.subject_objects(predicate=rdflib.URIRef('http://www.w3.org/2004/02/skos/core#member')):

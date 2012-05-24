@@ -6,6 +6,7 @@ import skos
 from test import unittest
 import rdflib
 import os.path
+import datetime
 
 class TestRDFUriNormalisation(unittest.TestCase):
     """
@@ -93,6 +94,9 @@ class TestRDFLoader(TestCase):
         self.assertEqual(len(collections), 1)
         for collection in collections.itervalues():
             self.assertIsInstance(collection, skos.Collection)
+            self.assertGreater(len(collection.title), 1)
+            self.assertGreater(len(collection.description), 1)
+            self.assertIsInstance(collection.date, datetime.datetime)
 
     def testFlattening(self):
         self.loader.flat = True
