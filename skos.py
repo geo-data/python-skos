@@ -208,7 +208,7 @@ techniques...
      <Concept('http://vocab.nerc.ac.uk/collection/P01/current/ACBSADCP/')>]
 """
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 from sqlalchemy.ext.declarative import declarative_base
 #from sqlalchemy import Table, Column, Integer, String, Date, Float, ForeignKey, event
@@ -491,6 +491,7 @@ class Concept(Object):
         super(Concept, self).__init__(uri)
         self.prefLabel = prefLabel
         self.definition = definition
+        self.notation = notation
 
     # many to many Concept <-> Concept representing broadness <->
     # narrowness
@@ -542,10 +543,10 @@ class Concept(Object):
         return "<%s('%s')>" % (self.__class__.__name__, self.uri)
 
     def __hash__(self):
-        return hash(''.join((getattr(self, attr) for attr in ('uri', 'prefLabel', 'definition'))))
+        return hash(''.join((v for v in (getattr(self, attr) for attr in ('uri', 'prefLabel', 'definition', 'notation')) if v)))
 
     def __eq__(self, other):
-        return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'prefLabel', 'definition')])
+        return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'prefLabel', 'definition', 'notation')])
 
 class ConceptScheme(Object):
     """
@@ -627,7 +628,7 @@ class RDFLoader(collections.Mapping):
 
         try:
             self.max_depth = float(max_depth)
-        except TypeError:
+        except (TypeError, ValueError):
             raise TypeError('Numeric type expected for `max_depth` argument, found: %s' % type(max_depth))
 
         self.flat = bool(flat)
@@ -700,13 +701,15 @@ class RDFLoader(collections.Mapping):
         normalise_uri = self.normalise_uri
         prefLabel = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#prefLabel')
         definition = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#definition')
+        notation = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#notation')
         for subject in self._iterateType(graph, 'Concept'):
             uri = normalise_uri(subject)
             # create the basic concept
             label = graph.value(subject=subject, predicate=prefLabel)
             defn = graph.value(subject=subject, predicate=definition)
+            notn = graph.value(subject=subject, predicate=notation)
             debug('creating Concept %s', uri)
-            cache[uri] = Concept(uri, label, defn)
+            cache[uri] = Concept(uri, label, defn, notn)
             concepts.add(uri)
 
         attrs = {

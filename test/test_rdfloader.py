@@ -75,6 +75,10 @@ class TestRDFLoader(TestCase):
         self.assertEqual(len(concepts), 3)
         for concept in concepts.itervalues():
             self.assertIsInstance(concept, skos.Concept)
+            self.assertGreater(len(concept.uri), 1)
+            self.assertGreater(len(concept.prefLabel), 1)
+            self.assertGreater(len(concept.definition), 1)
+            self.assertGreater(len(concept.notation), 1)
 
     def testGetConceptSchemes(self):
         schemes = self.loader.getConceptSchemes()
