@@ -370,8 +370,11 @@ class Concepts(collections.Mapping, collections.MutableSet):
 
     # Implement the interface for `collections.Container`
     def __contains__(self, value):
-        if isinstance(value, Concept):
+        try:
+            # if it's a Concept, get the Concept's key to test
             value = value.uri
+        except AttributeError:
+            pass
         return value in self._concepts
 
     # Implement the interface for `collections.Sized`
@@ -416,8 +419,12 @@ class Concepts(collections.Mapping, collections.MutableSet):
             self.add(value)
 
     def __eq__(self, other):
-        if isinstance(other, self.__class__):
+        try:
+            # if comparing another Concept, match against the
+            # underlying dictionary
             return self._concepts == other._concepts
+        except AttributeError:
+            pass
         return self._concepts == other
 
     def __str__(self):
