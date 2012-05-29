@@ -553,7 +553,10 @@ class Concept(Object):
         return hash(''.join((v for v in (getattr(self, attr) for attr in ('uri', 'prefLabel', 'definition', 'notation')) if v)))
 
     def __eq__(self, other):
-        return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'prefLabel', 'definition', 'notation')])
+        try:
+            return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'prefLabel', 'definition', 'notation')])
+        except AttributeError:
+            return False
 
 class ConceptScheme(Object):
     """
@@ -625,7 +628,10 @@ class Collection(Object):
         return hash(''.join((str(getattr(self, attr)) for attr in ('uri', 'title', 'description', 'date'))))
 
     def __eq__(self, other):
-        return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'title', 'description', 'members', 'date')])
+        try:
+            return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'title', 'description', 'members', 'date')])
+        except AttributeError:
+            return False
 
 
 import rdflib

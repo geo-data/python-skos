@@ -24,6 +24,13 @@ class TestCollection(TestCase):
         collection.members = self.getChildConcepts()
         self.obj.members = self.getChildConcepts()
         self.assertEqual(self.obj, collection)
+        collection.uri = 'other uri'
+        self.assertNotEqual(self.obj, collection)
+
+        # compare against an instance with a different interface. Use
+        # `assertFalse` as `assertNotEqual` seems to catch
+        # `AttributeErrors`.
+        self.assertFalse(self.obj == 'other type')
     
     def testInsert(self):
         session1 = self.Session()

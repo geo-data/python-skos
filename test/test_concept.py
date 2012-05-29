@@ -66,6 +66,16 @@ class TestConcept(TestCase):
     def getTestObj(self):
         return skos.Concept('uri', 'prefLabel', 'definition', 'notation')
 
+    def testEqual(self):
+        self.assertEqual(self.obj, self.getTestObj())
+        other = skos.Concept('other uri', 'other prefLabel', 'other definition', 'other notation')
+        self.assertNotEqual(self.obj, other)
+
+        # compare against an instance with a different interface. Use
+        # `assertFalse` as `assertNotEqual` seems to catch
+        # `AttributeErrors`.
+        self.assertFalse(self.obj == 'other object')
+
     def testInheritance(self):
         super(TestConcept, self).doTestInheritance()
 
