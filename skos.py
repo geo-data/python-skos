@@ -86,6 +86,13 @@ types:
     >>> loader.getConceptSchemes() # we haven't got any `ConceptScheme`s
     {}
 
+Note that you can convert your Python SKOS objects back into their RDF
+representation using the `RDFBuilder` class:
+
+    >>> builder = RDFBuilder()
+    >>> objects = loader.values()
+    >>> another_graph = builder.build(objects)
+
 The `RDFLoader` constructor also takes a `max_depth` parameter which
 defaults to `0`.  This parameter determines the depth to which RDF
 resources are resolved i.e. it is used to limit the depth to which
@@ -208,7 +215,7 @@ techniques...
      <Concept('http://vocab.nerc.ac.uk/collection/P01/current/ACBSADCP/')>]
 """
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'
 
 from sqlalchemy.ext.declarative import declarative_base
 #from sqlalchemy import Table, Column, Integer, String, Date, Float, ForeignKey, event
@@ -637,6 +644,15 @@ class Collection(Object):
 import rdflib
 from itertools import chain, islice
 class RDFLoader(collections.Mapping):
+    """
+    Loads an RDF graph into the Python SKOS object model
+
+    This class provides a mappable interface, with URIs as keys and
+    the objects themselves as values.
+
+    Use the `RDFBuilder` class to convert the Python SKOS objects back
+    into a RDF graph.
+    """
     def __init__(self, graph, max_depth=0, flat=False, normalise_uri=str):
         if not isinstance(graph, rdflib.Graph):
             raise TypeError('`rdflib.Graph` type expected for `graph` argument, found: %s' % type(graph))
@@ -856,3 +872,106 @@ class RDFLoader(collections.Mapping):
         collections = self._getAttr('_collections', flat)
 
         return Concepts([cache[key] for key in collections])
+
+class RDFBuilder(object):
+    """
+    Creates a RDF graph from Python SKOS objects
+
+    The primary method of this class is `build()`.
+
+    Use the `RDFLoader` class to convert the RDF graph back into the
+    Python SKOS object model.
+    """
+
+    def __init__(self):
+        self.SKOS = rdflib.Namespace("http://www.w3.org/2004/02/skos/core#")
+        self.DC = rdflib.Namespace("http://purl.org/dc/elements/1.1/")
+
+    def getGraph(self):
+        # Instantiate the graph
+        graph = rdflib.Graph()
+
+        # Bind a few prefix, namespace pairs.
+        graph.bind("dc", "http://purl.org/dc/elements/1.1/")
+        graph.bind("skos", "http://www.w3.org/2004/02/skos/core#")
+        return graph
+
+    def objectInGraph(self, obj, graph):
+        return (rdflib.term.URIRef(obj.uri), rdflib.term.URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), rdflib.term.URIRef(u'http://www.w3.org/2004/02/skos/core#%s' % obj.__class__.__name__)) in graph
+
+    def buildConcept(self, graph, concept):
+        """
+        Add a `skos.Concept` instance to a RDF graph
+        """
+        if self.objectInGraph(concept, graph):
+            return
+
+        node = rdflib.URIRef(concept.uri)
+        graph.add((node, rdflib.RDF.type, self.SKOS['Concept']))
+        graph.add((node, self.SKOS['notation'], rdflib.Literal(concept.notation)))
+        graph.add((node, self.SKOS['prefLabel'], rdflib.Literal(concept.prefLabel)))
+        graph.add((node, self.SKOS['definition'], rdflib.Literal(concept.definition)))
+
+        for uri, synonym in concept.synonyms.iteritems():
+            graph.add((node, self.SKOS['exactMatch'], rdflib.URIRef(uri)))
+            self.buildConcept(graph, synonym)
+
+        for uri, related in concept.related.iteritems():
+            graph.add((node, self.SKOS['related'], rdflib.URIRef(uri)))
+            self.buildConcept(graph, related)
+
+        for uri, broader in concept.broader.iteritems():
+            graph.add((node, self.SKOS['broader'], rdflib.URIRef(uri)))
+            self.buildConcept(graph, broader)
+
+        for uri, narrower in concept.narrower.iteritems():
+            graph.add((node, self.SKOS['narrower'], rdflib.URIRef(uri)))
+            self.buildConcept(graph, narrower)
+
+        for collection in concept.collections.itervalues():
+            self.buildCollection(graph, collection)
+
+    def buildCollection(self, graph, collection):
+        """
+        Add a `skos.Collection` instance to a RDF graph
+        """
+        if self.objectInGraph(collection, graph):
+            return
+
+        node = rdflib.URIRef(collection.uri)
+        graph.add((node, rdflib.RDF.type, self.SKOS['Collection']))
+        graph.add((node, self.DC['title'], rdflib.Literal(collection.title)))
+        graph.add((node, self.DC['description'], rdflib.Literal(collection.description)))
+        try:
+            date = collection.date.isoformat()
+        except AttributeError:
+            pass
+        else:
+            graph.add((node, self.DC['date'], rdflib.Literal(date)))
+
+        for uri, member in collection.members.iteritems():
+            graph.add((node, self.SKOS['member'], rdflib.URIRef(uri)))
+            self.buildConcept(graph, member)
+
+    def build(self, objects, graph=None):
+        """
+        Create an RDF graph from Python SKOS objects
+
+        `objects` is an iterable of any instances which are members of
+        the Python SKOS object model.  If `graph` is provided the
+        objects are added to the graph rather than creating a new
+        `Graph` instance.  An empty graph can be created with the
+        `getGraph` method.
+        """
+        if graph is None:
+            graph = self.getGraph()
+
+        for obj in objects:
+            try:
+                obj.prefLabel
+            except AttributeError:
+                self.buildCollection(graph, obj)
+            else:
+                self.buildConcept(graph, obj)
+
+        return graph

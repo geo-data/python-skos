@@ -87,6 +87,13 @@ types:
     >>> loader.getConceptSchemes() # we haven't got any `ConceptScheme`s
     {}    
 
+Note that you can convert your Python SKOS objects back into their RDF
+representation using the `RDFBuilder` class:
+
+    >>> builder = RDFBuilder()
+    >>> objects = loader.values()
+    >>> another_graph = builder.build(objects)
+
 The `RDFLoader` constructor also takes a `max_depth` parameter which
 defaults to `0`.  This parameter determines the depth to which RDF
 resources are resolved i.e. it is used to limit the depth to which

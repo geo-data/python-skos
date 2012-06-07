@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 import skos
 from test import unittest
 import rdflib
 import os.path
 import datetime
 
-class TestRDFUriNormalisation(unittest.TestCase):
+class TestRDFLoaderConstructor(unittest.TestCase):
     """
     Test type checking in constructor
     """
