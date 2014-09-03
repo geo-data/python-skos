@@ -746,9 +746,9 @@ class RDFLoader(collections.Mapping):
         for subject in self._iterateType(graph, 'Concept'):
             uri = normalise_uri(subject)
             # create the basic concept
-            label = graph.value(subject=subject, predicate=prefLabel)
-            defn = graph.value(subject=subject, predicate=definition)
-            notn = graph.value(subject=subject, predicate=notation)
+            label = str(graph.value(subject=subject, predicate=prefLabel))
+            defn = str(graph.value(subject=subject, predicate=definition))
+            notn = str(graph.value(subject=subject, predicate=notation))
             debug('creating Concept %s', uri)
             cache[uri] = Concept(uri, label, defn, notn)
             concepts.add(uri)
@@ -781,8 +781,8 @@ class RDFLoader(collections.Mapping):
         for subject in self._iterateType(graph, 'Collection'):
             uri = normalise_uri(subject)
             # create the basic concept
-            title = graph.value(subject=subject, predicate=pred_title)
-            description = graph.value(subject=subject, predicate=pred_description)
+            title = str(graph.value(subject=subject, predicate=pred_title))
+            description = str(graph.value(subject=subject, predicate=pred_description))
             date = self._dcDateToDatetime(graph.value(subject=subject, predicate=pred_date))
             debug('creating Collection %s', uri)
             cache[uri] = Collection(uri, title, description, date)
