@@ -3,7 +3,7 @@
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" 
 xmlns:skos="http://www.w3.org/2004/02/skos/core#" 
 xmlns:dc="http://purl.org/dc/elements/1.1/"> 
-<skos:Concept rdf:about='./external1.xml'>
+<skos:Concept rdf:about='./external1-dce.xml'>
 <skos:notation>SDN:L191:1:005</skos:notation>
 <skos:prefLabel>theme</skos:prefLabel>
 <skos:altLabel>theme</skos:altLabel>

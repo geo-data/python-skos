@@ -775,15 +775,15 @@ class RDFLoader(collections.Mapping):
         # generate all the collections
         collections = set()
         normalise_uri = self.normalise_uri
-        pred_title = rdflib.URIRef('http://purl.org/dc/elements/1.1/title')
-        pred_description = rdflib.URIRef('http://purl.org/dc/elements/1.1/description')
-        pred_date = rdflib.URIRef('http://purl.org/dc/elements/1.1/date')
+        pred_titles = [rdflib.URIRef('http://purl.org/dc/terms/title'), rdflib.URIRef('http://purl.org/dc/elements/1.1/title')]
+        pred_descriptions = [rdflib.URIRef('http://purl.org/dc/terms/description'), rdflib.URIRef('http://purl.org/dc/elements/1.1/description')]
+        pred_dates = [rdflib.URIRef('http://purl.org/dc/terms/date'), rdflib.URIRef('http://purl.org/dc/elements/1.1/date')]
         for subject in self._iterateType(graph, 'Collection'):
             uri = normalise_uri(subject)
             # create the basic concept
-            title = str(graph.value(subject=subject, predicate=pred_title))
-            description = str(graph.value(subject=subject, predicate=pred_description))
-            date = self._dcDateToDatetime(graph.value(subject=subject, predicate=pred_date))
+            title = str(self._valueFromPredicates(graph, subject, pred_titles))
+            description = str(self._valueFromPredicates(graph, subject, pred_descriptions))
+            date = self._dcDateToDatetime(self._valueFromPredicates(graph, subject, pred_dates))
             debug('creating Collection %s', uri)
             cache[uri] = Collection(uri, title, description, date)
             collections.add(uri)
@@ -798,17 +798,26 @@ class RDFLoader(collections.Mapping):
 
         return collections
 
+    def _valueFromPredicates(self, graph, subject, predicates):
+        """
+        Given a list of predicates return the first value from a graph that is not None
+        """
+        for predicate in predicates:
+            value = graph.value(subject=subject, predicate=predicate)
+            if value: return value
+        return None
+
     def _loadConceptSchemes(self, graph, cache):
         # generate all the schemes
         schemes = set()
         normalise_uri = self.normalise_uri
-        pred_title = rdflib.URIRef('http://purl.org/dc/elements/1.1/title')
-        pred_description = rdflib.URIRef('http://purl.org/dc/elements/1.1/description')
+        pred_titles = [rdflib.URIRef('http://purl.org/dc/terms/title'), rdflib.URIRef('http://purl.org/dc/elements/1.1/title')]
+        pred_descriptions = [rdflib.URIRef('http://purl.org/dc/terms/description'), rdflib.URIRef('http://purl.org/dc/elements/1.1/description')]
         for subject in self._iterateType(graph, 'ConceptScheme'):
             uri = normalise_uri(subject)
             # create the basic concept
-            title = graph.value(subject=subject, predicate=pred_title)
-            description = graph.value(subject=subject, predicate=pred_description)
+            title = str(self._valueFromPredicates(graph, subject, pred_titles))
+            description = str(self._valueFromPredicates(graph, subject, pred_descriptions))
             debug('creating ConceptScheme %s', uri)
             cache[uri] = ConceptScheme(uri, title, description)
             schemes.add(uri)
