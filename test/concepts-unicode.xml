@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:dc="http://purl.org/dc/terms/" xmlns:owlxml="http://www.w3.org/2006/12/owl2-xml#">
+  <skos:Collection rdf:about="http://portal.oceannet.org/collection/unicode">
+    <dc:title>Test Unicode Collection ó</dc:title>
+    <dc:description>A collection of concepts used as a test ó</dc:description>
+    <dc:date>2012-04-26T08:43:53.808+0000</dc:date>
+    <skos:member>
+      <skos:Concept rdf:about="http://portal.oceannet.org/test1/unicode">
+        <skos:notation>test1-unicode-ó</skos:notation>
+        <skos:prefLabel>Unicode test concept: ó</skos:prefLabel>
+        <skos:definition>Testing unicode character ó</skos:definition>
+        <skos:related rdf:resource="http://portal.oceannet.org/test/dc"/>
+        <owlxml:sameAs rdf:resource="http://portal.oceannet.org/test2/dc"/>
+      </skos:Concept>
+    </skos:member>
+  </skos:Collection>
+</rdf:RDF>

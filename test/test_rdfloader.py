@@ -24,23 +24,46 @@ class TestRDFLoaderConstructor(unittest.TestCase):
 
 class TestCase(unittest.TestCase):
     
+    def __init__(self, rdf_files, *args, **kwargs):
+        super(TestCase, self).__init__(*args, **kwargs)
+        self.rdf_files = rdf_files
+
     def setUp(self):
         graph = rdflib.Graph()
         directory = os.path.dirname(__file__)
-        graph.parse(os.path.join(directory, 'concepts-dce.xml'))
-        graph.parse(os.path.join(directory, 'schemes-dce.xml'))
-        graph.parse(os.path.join(directory, 'concepts-dc.xml'))
-        graph.parse(os.path.join(directory, 'schemes-dc.xml'))
+        for file_ in self.rdf_files:
+            graph.parse(os.path.join(directory, file_))
         self.loader = self.getLoader(graph)
+
+    def getLoader(self, graph):
+        return skos.RDFLoader(graph, 0)
+
+class TestUnicode(TestCase):
+
+    def __init__(self, *args, **kwargs):
+        rdf_files = [
+            'concepts-unicode.xml',
+            'schemes-unicode.xml'
+        ]
+        super(TestUnicode, self).__init__(rdf_files, *args, **kwargs)
+
+    def testLen(self):
+        self.assertEqual(len(self.loader), 3)
 
 class TestRDFLoader(TestCase):
     """
     A base class used for testing `RDFLoader` objects
     """
 
-    def getLoader(self, graph):
-        return skos.RDFLoader(graph, 0)
-    
+    def __init__(self, *args, **kwargs):
+        rdf_files = [
+            'concepts-dce.xml',
+            'schemes-dce.xml',
+            'concepts-dc.xml',
+            'schemes-dc.xml'
+        ]
+        super(TestRDFLoader, self).__init__(rdf_files, *args, **kwargs)
+
     def getKeys(self):
         return [
             'http://portal.oceannet.org/test',

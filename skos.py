@@ -746,9 +746,9 @@ class RDFLoader(collections.Mapping):
         for subject in self._iterateType(graph, 'Concept'):
             uri = normalise_uri(subject)
             # create the basic concept
-            label = str(graph.value(subject=subject, predicate=prefLabel))
-            defn = str(graph.value(subject=subject, predicate=definition))
-            notn = str(graph.value(subject=subject, predicate=notation))
+            label = unicode(graph.value(subject=subject, predicate=prefLabel))
+            defn = unicode(graph.value(subject=subject, predicate=definition))
+            notn = unicode(graph.value(subject=subject, predicate=notation))
             debug('creating Concept %s', uri)
             cache[uri] = Concept(uri, label, defn, notn)
             concepts.add(uri)
@@ -781,8 +781,8 @@ class RDFLoader(collections.Mapping):
         for subject in self._iterateType(graph, 'Collection'):
             uri = normalise_uri(subject)
             # create the basic concept
-            title = str(self._valueFromPredicates(graph, subject, pred_titles))
-            description = str(self._valueFromPredicates(graph, subject, pred_descriptions))
+            title = unicode(self._valueFromPredicates(graph, subject, pred_titles))
+            description = unicode(self._valueFromPredicates(graph, subject, pred_descriptions))
             date = self._dcDateToDatetime(self._valueFromPredicates(graph, subject, pred_dates))
             debug('creating Collection %s', uri)
             cache[uri] = Collection(uri, title, description, date)
@@ -816,8 +816,8 @@ class RDFLoader(collections.Mapping):
         for subject in self._iterateType(graph, 'ConceptScheme'):
             uri = normalise_uri(subject)
             # create the basic concept
-            title = str(self._valueFromPredicates(graph, subject, pred_titles))
-            description = str(self._valueFromPredicates(graph, subject, pred_descriptions))
+            title = unicode(self._valueFromPredicates(graph, subject, pred_titles))
+            description = unicode(self._valueFromPredicates(graph, subject, pred_descriptions))
             debug('creating ConceptScheme %s', uri)
             cache[uri] = ConceptScheme(uri, title, description)
             schemes.add(uri)
