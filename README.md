@@ -254,3 +254,19 @@ This exercises the comprehensive package test suite.
   [MEDIN Portal](https://github.com/geo-data/medin-portal) and
   [MEDIN metadata tool](https://github.com/geo-data/medin-rdbms-tool)
   software.
+
+## Issues and Contributing
+
+Please report bugs or issues using the
+[GitHub issue tracker](https://github.com/geo-data/python-skos).
+
+Code and documentation contributions are very welcome, either as GitHub pull
+requests or patches.
+
+## License
+
+The [BSD 2-Clause](http://opensource.org/licenses/BSD-2-Clause).
+
+## Contact
+
+Homme Zwaagstra <hrz@geodata.soton.ac.uk>
