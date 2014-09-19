@@ -248,13 +248,6 @@ This exercises the comprehensive package test suite.
   supported. Extending the code to support more of the SKOS
   specification should not be difficult, however.
 
-- This is a new and immature package: please treat it as beta quality
-  software and report any bugs in the github issue tracker. Having
-  said that it sees production use in the
-  [MEDIN Portal](https://github.com/geo-data/medin-portal) and
-  [MEDIN metadata tool](https://github.com/geo-data/medin-rdbms-tool)
-  software.
-
 ## Issues and Contributing
 
 Please report bugs or issues using the
