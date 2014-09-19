@@ -500,12 +500,14 @@ class Concept(Object):
     prefLabel = Column(String(50), nullable=False)
     definition = Column(Text)
     notation = Column(String(50))
+    altLabel = Column(String(50))
 
-    def __init__(self, uri, prefLabel, definition=None, notation=None):
+    def __init__(self, uri, prefLabel, definition=None, notation=None, altLabel=None):
         super(Concept, self).__init__(uri)
         self.prefLabel = prefLabel
         self.definition = definition
         self.notation = notation
+        self.altLabel = altLabel
 
     # many to many Concept <-> Concept representing broadness <->
     # narrowness
@@ -557,11 +559,11 @@ class Concept(Object):
         return "<%s('%s')>" % (self.__class__.__name__, self.uri)
 
     def __hash__(self):
-        return hash(''.join((v for v in (getattr(self, attr) for attr in ('uri', 'prefLabel', 'definition', 'notation')) if v)))
+        return hash(''.join((v for v in (getattr(self, attr) for attr in ('uri', 'prefLabel', 'definition', 'notation', 'altLabel')) if v)))
 
     def __eq__(self, other):
         try:
-            return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'prefLabel', 'definition', 'notation')])
+            return min([getattr(self, attr) == getattr(other, attr) for attr in ('uri', 'prefLabel', 'definition', 'notation', 'altLabel')])
         except AttributeError:
             return False
 
@@ -743,14 +745,16 @@ class RDFLoader(collections.Mapping):
         prefLabel = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#prefLabel')
         definition = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#definition')
         notation = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#notation')
+        altLabel = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#altLabel')
         for subject in self._iterateType(graph, 'Concept'):
             uri = normalise_uri(subject)
             # create the basic concept
             label = unicode(graph.value(subject=subject, predicate=prefLabel))
             defn = unicode(graph.value(subject=subject, predicate=definition))
             notn = unicode(graph.value(subject=subject, predicate=notation))
+            alt = unicode(graph.value(subject=subject, predicate=altLabel))
             debug('creating Concept %s', uri)
-            cache[uri] = Concept(uri, label, defn, notn)
+            cache[uri] = Concept(uri, label, defn, notn, alt)
             concepts.add(uri)
 
         attrs = {
@@ -920,6 +924,7 @@ class RDFBuilder(object):
         graph.add((node, self.SKOS['notation'], rdflib.Literal(concept.notation)))
         graph.add((node, self.SKOS['prefLabel'], rdflib.Literal(concept.prefLabel)))
         graph.add((node, self.SKOS['definition'], rdflib.Literal(concept.definition)))
+        graph.add((node, self.SKOS['altLabel'], rdflib.Literal(concept.altLabel)))
 
         for uri, synonym in concept.synonyms.iteritems():
             graph.add((node, self.SKOS['exactMatch'], rdflib.URIRef(uri)))

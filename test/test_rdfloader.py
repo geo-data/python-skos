@@ -109,6 +109,10 @@ class TestRDFLoader(TestCase):
             self.assertGreater(len(concept.definition), 1)
             self.assertGreater(len(concept.notation), 1)
 
+    def testAltLabel(self):
+        concept = self.loader['http://portal.oceannet.org/test2/dc']
+        self.assertEqual(concept.altLabel, 'testing')
+
     def testGetConceptSchemes(self):
         schemes = self.loader.getConceptSchemes()
         self.assertIsInstance(schemes, skos.Concepts)

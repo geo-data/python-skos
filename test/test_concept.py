@@ -23,8 +23,8 @@ class TestCase(unittest.TestCase):
         """
 
         return skos.Concepts([
-                skos.Concept('uri1', 'prefLabel1', 'definition1', 'notation1'),
-                skos.Concept('uri2', 'prefLabel2', 'definition2', 'notation2')
+                skos.Concept('uri1', 'prefLabel1', 'definition1', 'notation1', 'altLabel1'),
+                skos.Concept('uri2', 'prefLabel2', 'definition2', 'notation2', 'altlabel2')
             ])
 
     def createDbSchema(self):
@@ -64,11 +64,11 @@ class TestConcept(TestCase):
     """
 
     def getTestObj(self):
-        return skos.Concept('uri', 'prefLabel', 'definition', 'notation')
+        return skos.Concept('uri', 'prefLabel', 'definition', 'notation', 'altLabel')
 
     def testEqual(self):
         self.assertEqual(self.obj, self.getTestObj())
-        other = skos.Concept('other uri', 'other prefLabel', 'other definition', 'other notation')
+        other = skos.Concept('other uri', 'other prefLabel', 'other definition', 'other notation', 'other altLabel')
         self.assertNotEqual(self.obj, other)
 
         # compare against an instance with a different interface. Use

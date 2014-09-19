@@ -9,6 +9,7 @@
         <skos:notation>test1-unicode-ó</skos:notation>
         <skos:prefLabel>Unicode test concept: ó</skos:prefLabel>
         <skos:definition>Testing unicode character ó</skos:definition>
+        <skos:altLabel>altLabel test: ó</skos:altLabel>
         <skos:related rdf:resource="http://portal.oceannet.org/test/dc"/>
         <owlxml:sameAs rdf:resource="http://portal.oceannet.org/test2/dc"/>
       </skos:Concept>
