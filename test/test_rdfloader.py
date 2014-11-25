@@ -23,7 +23,7 @@ class TestRDFLoaderConstructor(unittest.TestCase):
             skos.RDFLoader(graph, normalise_uri='oops')
 
 class TestCase(unittest.TestCase):
-    
+
     def __init__(self, rdf_files, *args, **kwargs):
         super(TestCase, self).__init__(*args, **kwargs)
         self.rdf_files = rdf_files
@@ -43,12 +43,24 @@ class TestUnicode(TestCase):
     def __init__(self, *args, **kwargs):
         rdf_files = [
             'concepts-unicode.xml',
-            'schemes-unicode.xml'
+            'schemes-unicode.xml',
+            'concepts-unicode-languages.xml'
         ]
         super(TestUnicode, self).__init__(rdf_files, *args, **kwargs)
 
+    def getLoader(self, graph):
+        return skos.RDFLoader(graph, 0, lang='es')
+
     def testLen(self):
         self.assertEqual(len(self.loader), 3)
+
+    def testLanguages(self):
+        concept = self.loader.getConcepts()['http://portal.oceannet.org/test1/unicode']
+
+        assert concept.prefLabel == u'Concepto de prueba Unicode: ó', concept.prefLabel
+        assert concept.altLabel == u'Prueba alternativa: ó', concept.altLabel
+        assert concept.definition == u'Prueba de caracteres unicode ó', concept.definition
+
 
 class TestRDFLoader(TestCase):
     """
@@ -146,7 +158,7 @@ class TestRDFParsing(TestRDFLoader):
 
     def getExternalResource(self, resource):
         return 'file://' + os.path.join(os.path.dirname(os.path.abspath(__file__)), resource)
-    
+
     def testSynonyms(self):
         concept = self.loader['http://portal.oceannet.org/test']
         key = self.getExternalResource('external1-dce.xml')

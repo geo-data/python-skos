@@ -655,7 +655,7 @@ class RDFLoader(collections.Mapping):
     Use the `RDFBuilder` class to convert the Python SKOS objects back
     into a RDF graph.
     """
-    def __init__(self, graph, max_depth=0, flat=False, normalise_uri=str):
+    def __init__(self, graph, max_depth=0, flat=False, normalise_uri=str, lang=None):
         if not isinstance(graph, rdflib.Graph):
             raise TypeError('`rdflib.Graph` type expected for `graph` argument, found: %s' % type(graph))
 
@@ -670,7 +670,7 @@ class RDFLoader(collections.Mapping):
             raise TypeError('callable expected for `normalise_uri` argument')
         self.normalise_uri = normalise_uri
 
-        self.load(graph)       # convert the graph to our object model
+        self.load(graph, lang)       # convert the graph to our object model
 
     def _dcDateToDatetime(self, date):
         """
@@ -738,7 +738,18 @@ class RDFLoader(collections.Mapping):
         for subject in graph.subjects(predicate=predicate, object=object_):
             yield subject
 
-    def _loadConcepts(self, graph, cache):
+    def _get_value_for_lang(self, graph, subject, predicate, lang):
+        objects = graph.objects(subject=subject, predicate=predicate)
+        if not objects:
+            return None
+
+        for obj in objects:
+            if obj.language == lang:
+                return obj.value
+
+        return None
+
+    def _loadConcepts(self, graph, cache, lang):
         # generate all the concepts
         concepts = set()
         normalise_uri = self.normalise_uri
@@ -746,13 +757,19 @@ class RDFLoader(collections.Mapping):
         definition = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#definition')
         notation = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#notation')
         altLabel = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#altLabel')
+
         for subject in self._iterateType(graph, 'Concept'):
             uri = normalise_uri(subject)
-            # create the basic concept
-            label = unicode(graph.value(subject=subject, predicate=prefLabel))
-            defn = unicode(graph.value(subject=subject, predicate=definition))
+
+            # Check for a preferredLabel in our desired language
+            label_list = graph.preferredLabel(subject, lang=lang)
+            label = unicode(label_list[0][1].value)
+
+            defn = self._get_value_for_lang(graph, subject, definition, lang)
+            alt = self._get_value_for_lang(graph, subject, altLabel, lang)
+
             notn = unicode(graph.value(subject=subject, predicate=notation))
-            alt = unicode(graph.value(subject=subject, predicate=altLabel))
+
             debug('creating Concept %s', uri)
             cache[uri] = Concept(uri, label, defn, notn, alt)
             concepts.add(uri)
@@ -828,14 +845,14 @@ class RDFLoader(collections.Mapping):
 
         return schemes
 
-    def load(self, graph):
+    def load(self, graph, lang='en'):
         cache = {}
         normalise_uri = self.normalise_uri
         self._concepts = set((normalise_uri(subj) for subj in self._iterateType(graph, 'Concept')))
         self._collections = set((normalise_uri(subj) for subj in self._iterateType(graph, 'Collection')))
         self._schemes = set((normalise_uri(subj) for subj in self._iterateType(graph, 'ConceptScheme')))
         self._resolveGraph(graph)
-        self._flat_concepts = self._loadConcepts(graph, cache)
+        self._flat_concepts = self._loadConcepts(graph, cache, lang)
         self._flat_collections = self._loadCollections(graph, cache)
         self._flat_schemes = self._loadConceptSchemes(graph, cache)
         self._flat_cache = cache # all objects
