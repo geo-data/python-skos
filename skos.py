@@ -698,13 +698,14 @@ class RDFLoader(collections.Mapping):
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'),
             rdflib.URIRef('http://www.w3.org/2006/12/owl2-xml#sameAs'),
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#related'),
-            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#member')
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#member'),
             )
 
         resolvable_objects = (
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#ConceptScheme'),
             rdflib.URIRef('http://www.w3.org/2004/02/skos/core#Concept'),
-            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#Collection')
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#Collection'),
+            rdflib.URIRef('http://www.w3.org/2004/02/skos/core#hasTopConcept'),
             )
 
         normalise_uri = self.normalise_uri
@@ -744,7 +745,7 @@ class RDFLoader(collections.Mapping):
             return None
 
         for obj in objects:
-            if obj.language == lang:
+            if hasattr(obj, "language") and obj.language == lang:
                 return obj.value
 
         return None
