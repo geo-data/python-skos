@@ -759,11 +759,14 @@ class RDFLoader(collections.Mapping):
         notation = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#notation')
         altLabel = rdflib.URIRef('http://www.w3.org/2004/02/skos/core#altLabel')
 
+        default_label = [[None, type('obj', (object,), {'value':""})]]
+
         for subject in self._iterateType(graph, 'Concept'):
             uri = normalise_uri(subject)
 
             # Check for a preferredLabel in our desired language
-            label_list = graph.preferredLabel(subject, lang=lang)
+            label_list = graph.preferredLabel(subject, lang=lang, default=default_label)
+
             label = unicode(label_list[0][1].value)
 
             defn = self._get_value_for_lang(graph, subject, definition, lang)
